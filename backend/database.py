@@ -14,7 +14,6 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-# Her endpoint'te veritabanı bağlantısı açıp kapatan fonksiyon
 def get_db():
     db = SessionLocal()
     try:

@@ -1,14 +1,28 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from database import engine, Base
+import models.user
+import models.trip
+from routes.auth import router as auth_router
 
-app = FastAPI(title='TravelMind API', version='1.0.0')
+Base.metadata.create_all(bind=engine)
 
-app.add_middleware(CORSMiddleware, allow_origins=['http://localhost:5173'], allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
+app = FastAPI(title="TravelMind API", version="1.0.0")
 
-@app.get('/')
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth_router)
+
+@app.get("/")
 def root():
-    return {'message': 'TravelMind API calisiyor!'}
+    return {"message": "TravelMind API calisiyor!"}
 
-@app.get('/health')
+@app.get("/health")
 def health_check():
-    return {'status': 'ok'}
+    return {"status": "ok"}
