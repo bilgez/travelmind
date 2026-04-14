@@ -1,6 +1,6 @@
 # TravelMind 🧳
 **NLP Tabanlı Akıllı Seyahat Planlama Sistemi**
-Türk Hava Kurumu Üniversitesi | 2025-2026 Güz Dönemi | ✅ Hafta 1-5 Tamamlandı | Son Güncelleme: Hafta 5 ✅
+Türk Hava Kurumu Üniversitesi | 2025-2026 Güz Dönemi | ✅ Hafta 1-6 Tamamlandı
 
 ---
 
@@ -53,11 +53,12 @@ Türk Hava Kurumu Üniversitesi | 2025-2026 Güz Dönemi | ✅ Hafta 1-5 Tamamla
 - [ ] GeoJSON formatı (ileri sürüm için)
 - [x] ⚠️ Zehra'nın optimizasyon koduna bağlanılacak → `services/optimizer.py`
 
-### ⏳ Hafta 6 — Bütçe Modülü
-- [ ] `models/budget.py` — Budget tablosu oluştur
-- [ ] `GET /api/budget/{trip_id}` endpoint'i
-- [ ] OpenWeather API entegrasyonu
-- [ ] `POST /api/adapt-plan` endpoint'i
+### ✅ Hafta 6 — Bütçe Modülü
+- [x] `models/budget.py` — Budget tablosu oluşturuldu
+- [x] `GET /api/budget/{trip_id}` endpoint'i yazıldı ve test edildi
+- [x] Bütçe hesaplama servisi (activity_cost + transport_cost + contingency)
+- [ ] OpenWeather API entegrasyonu (ileriki sürüm)
+- [ ] `POST /api/adapt-plan` endpoint'i (ileriki sürüm)
 
 ### ⏳ Hafta 7 — Test
 - [ ] pytest ile integration testler
