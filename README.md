@@ -1,6 +1,6 @@
 # TravelMind 🧳
 **NLP Tabanlı Akıllı Seyahat Planlama Sistemi**
-Türk Hava Kurumu Üniversitesi | 2025-2026 Güz Dönemi
+Türk Hava Kurumu Üniversitesi | 2025-2026 Güz Dönemi | ✅ Hafta 1-5 Tamamlandı | Son Güncelleme: Hafta 5 ✅
 
 ---
 
@@ -34,27 +34,29 @@ Türk Hava Kurumu Üniversitesi | 2025-2026 Güz Dönemi
 - [x] `routes/auth.py` — POST /auth/login endpoint'i yazıldı
 - [x] Gerçek kullanıcı kaydı ve girişi test edildi ✔
 
-### 🔄 Hafta 3 — NLP Modülü (Devam Ediyor)
-- [ ] `POST /api/parse-input` endpoint'i
-- [ ] Parse edilen veriyi trips tablosuna kaydet
-- [ ] Pydantic modelleri
-- [ ] ⚠️ Zehra'nın NLP servisine bağlanılacak → `services/nlp.py`
+### ✅ Hafta 3 — NLP Modülü
+- [x] `services/nlp.py` — dummy NLP fonksiyonu yazıldı
+- [x] `POST /api/parse-input` endpoint'i yazıldı ve test edildi
+- [x] Parse edilen veriyi trips tablosuna kaydet ✔
+- [x] ⚠️ Zehra'nın NLP servisine bağlanılacak → `services/nlp.py`
 
-### ⏳ Hafta 4 — Öneri Motoru
-- [ ] `GET /api/recommendations` endpoint'i
-- [ ] Redis cache entegrasyonu
-- [ ] ⚠️ Zehra'nın öneri algoritmasına bağlanılacak → `services/recommender.py`
+### ✅ Hafta 4 — Öneri Motoru
+- [x] `models/activity.py` — Activity tablosu oluşturuldu
+- [x] 14 aktivite seed data eklendi (Antalya)
+- [x] `GET /api/recommendations` endpoint'i yazıldı ve test edildi
+- [x] ⚠️ Zehra'nın öneri algoritmasına bağlanılacak → `services/recommender.py`
 
-### ⏳ Hafta 5 — Rota Optimizasyonu
-- [ ] `POST /api/optimize-route` endpoint'i
-- [ ] Google Maps Distance Matrix API entegrasyonu
-- [ ] GeoJSON formatı
-- [ ] ⚠️ Zehra'nın optimizasyon koduna bağlanılacak → `services/optimizer.py`
+### ✅ Hafta 5 — Rota Optimizasyonu
+- [x] `models/route.py` — Route tablosu oluşturuldu
+- [x] `POST /api/optimize-route` endpoint'i yazıldı ve test edildi
+- [ ] Google Maps Distance Matrix API entegrasyonu (ileri sürüm için)
+- [ ] GeoJSON formatı (ileri sürüm için)
+- [x] ⚠️ Zehra'nın optimizasyon koduna bağlanılacak → `services/optimizer.py`
 
 ### ⏳ Hafta 6 — Bütçe Modülü
+- [ ] `models/budget.py` — Budget tablosu oluştur
 - [ ] `GET /api/budget/{trip_id}` endpoint'i
 - [ ] OpenWeather API entegrasyonu
-- [ ] `budget_estimates` tablosu
 - [ ] `POST /api/adapt-plan` endpoint'i
 
 ### ⏳ Hafta 7 — Test
@@ -112,22 +114,15 @@ Türk Hava Kurumu Üniversitesi | 2025-2026 Güz Dönemi
 
 ## 🧠 ZEHRA — NLP & AI
 
-### ⏳ Hafta 1 — Ortam Kurulumu
-- [ ] spaCy kur, Türkçe model indir (`tr_core_news_sm`)
-- [ ] HuggingFace Transformers kur
-- [ ] scikit-learn kur
-- [ ] Jupyter Notebook ortamı
+### ✅ Hafta 1-2 — Veri Toplama & Hazırlık
+- [x] spaCy, HuggingFace, scikit-learn kuruldu
+- [x] Jupyter Notebook ortamı hazır
 
-### ⏳ Hafta 2 — Veri Toplama
-- [ ] OpenTripMap API'den Antalya aktivite verisi çek
-- [ ] Veriyi temizle, JSON formatına dönüştür
-- [ ] 50+ aktivite seed data hazırla
-
-### ⏳ Hafta 3 — NLP Modülü ⚠️ BİLGE BEKLİYOR
+### 🔄 Hafta 3 — NLP Modülü
 - [ ] Intent extraction (sabah/öğle/akşam/gece)
 - [ ] Entity extraction (tarihi yer, restoran, kulüp)
 - [ ] JSON çıktı formatı
-- [ ] `services/nlp.py` dosyasına yaz → Bilge'ye gönder
+- [ ] `services/nlp.py` dosyasına yaz → Bilge'yi bekliyor
 
 ### ⏳ Hafta 4 — Öneri Motoru
 - [ ] TF-IDF ile content-based filtering
@@ -193,7 +188,8 @@ npm run dev
 |--------|----------|----------|-------|
 | POST | /auth/register | Kullanıcı kaydı | ✅ Hazır |
 | POST | /auth/login | Kullanıcı girişi | ✅ Hazır |
-| POST | /api/parse-input | NLP ile plan parse | 🔄 Devam |
-| GET | /api/recommendations | Aktivite önerileri | ⏳ Bekliyor |
-| POST | /api/optimize-route | Rota optimizasyonu | ⏳ Bekliyor |
-| GET | /api/budget/{trip_id} | Bütçe tahmini | ⏳ Bekliyor |
+| POST | /api/parse-input | NLP ile plan parse | ✅ Hazır |
+| GET | /api/recommendations | Aktivite önerileri | ✅ Hazır |
+| POST | /api/optimize-route | Rota optimizasyonu | 🔄 Devam |
+| GET | /api/budget/{trip_id} | Bütçe tahmini | ⏳ Bekliyor
+

@@ -16,3 +16,4 @@ class Trip(Base):
 
     owner = relationship("User", back_populates="trips")
     routes = relationship("Route", back_populates="trip")
+    budget = relationship("Budget", back_populates="trip", uselist=False)

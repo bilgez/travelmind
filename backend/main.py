@@ -5,6 +5,7 @@ import models.user
 import models.trip
 import models.activity
 import models.route
+import models.budget
 from routes.auth import router as auth_router
 from routes.trips import router as trips_router
 from routes.recommendations import router as recommendations_router

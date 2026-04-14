@@ -7,6 +7,7 @@ from models.user import User
 from models.route import Route
 from services.nlp import parse_input
 from services.optimizer import optimize_route
+from services.budget import calculate_budget
 
 router = APIRouter(prefix="/api", tags=["trips"])
 
@@ -84,3 +85,15 @@ def optimize_route_endpoint(request: OptimizeRouteRequest, db: Session = Depends
         "total_cost_estimate": optimization_result["total_cost_estimate"],
         "message": "Rota basariyla optimize edildi!"
     }
+
+@router.get("/budget/{trip_id}")
+def get_budget(trip_id: int, db: Session = Depends(get_db)):
+    """Trip'in bütçesini hesapla ve döndür"""
+    try:
+        budget = calculate_budget(trip_id, db)
+        return {
+            "budget": budget,
+            "message": "Bütçe basariyla hesaplandi!"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
