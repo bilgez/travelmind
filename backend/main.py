@@ -4,6 +4,7 @@ from database import engine, Base
 import models.user
 import models.trip
 from routes.auth import router as auth_router
+from routes.trips import router as trips_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -18,6 +19,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(trips_router)
 
 @app.get("/")
 def root():
