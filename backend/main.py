@@ -4,6 +4,7 @@ from database import engine, Base
 import models.user
 import models.trip
 import models.activity
+import models.route
 from routes.auth import router as auth_router
 from routes.trips import router as trips_router
 from routes.recommendations import router as recommendations_router

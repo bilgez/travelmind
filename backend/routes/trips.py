@@ -4,13 +4,19 @@ from pydantic import BaseModel
 from database import get_db
 from models.trip import Trip
 from models.user import User
+from models.route import Route
 from services.nlp import parse_input
+from services.optimizer import optimize_route
 
 router = APIRouter(prefix="/api", tags=["trips"])
 
 class ParseInputRequest(BaseModel):
     user_id: int
     text: str
+
+class OptimizeRouteRequest(BaseModel):
+    trip_id: int
+    activity_ids: list  # [1, 3, 5, 7]
 
 @router.post("/parse-input")
 def parse_user_input(request: ParseInputRequest, db: Session = Depends(get_db)):
@@ -43,3 +49,38 @@ def parse_user_input(request: ParseInputRequest, db: Session = Depends(get_db)):
 def get_user_trips(user_id: int, db: Session = Depends(get_db)):
     trips = db.query(Trip).filter(Trip.user_id == user_id).all()
     return {"trips": [{"id": t.id, "title": t.title, "status": t.status} for t in trips]}
+
+@router.post("/optimize-route")
+def optimize_route_endpoint(request: OptimizeRouteRequest, db: Session = Depends(get_db)):
+    # Trip var mı?
+    trip = db.query(Trip).filter(Trip.id == request.trip_id).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip bulunamadi")
+    
+    # Rota optimizasyonunu yap
+    try:
+        optimization_result = optimize_route(request.trip_id, request.activity_ids, db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    # Route'u veritabanına kaydet
+    new_route = Route(
+        trip_id=request.trip_id,
+        activity_ids=optimization_result["optimized_order"],
+        total_distance=optimization_result["total_distance"],
+        total_duration=optimization_result["total_duration"],
+        total_cost_estimate=optimization_result["total_cost_estimate"]
+    )
+    db.add(new_route)
+    db.commit()
+    db.refresh(new_route)
+    
+    return {
+        "route_id": new_route.id,
+        "trip_id": request.trip_id,
+        "optimized_order": optimization_result["optimized_order"],
+        "total_distance": optimization_result["total_distance"],
+        "total_duration": optimization_result["total_duration"],
+        "total_cost_estimate": optimization_result["total_cost_estimate"],
+        "message": "Rota basariyla optimize edildi!"
+    }
