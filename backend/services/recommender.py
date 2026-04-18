@@ -3,15 +3,21 @@ from models.activity import Activity
 
 def get_recommendations(user_id: int, category: str, db: Session) -> list:
     """
-    Zehra'nın algoritması gelince bu fonksiyon değişecek.
-    Şimdilik kategori bazında dummy aktiviteler döndürüyor.
+    Kategori bazında aktivite önerir.
+    Rating'e göre sıralar (en yüksek önce).
+    Zehra'nın hybrid algoritması gelince bu fonksiyon güçlendirilecek.
     """
-    
-    # Kategoriyi basit bir şekilde filtrele
     activities = db.query(Activity).filter(
         Activity.category == category
-    ).limit(5).all()
-    
+    ).order_by(Activity.rating.desc()).limit(5).all()
+
+    if not activities:
+        return []
+
+    # Normalize edilmiş skor hesapla (0-1 arası)
+    max_rating = max(a.rating for a in activities)
+    min_price = min(a.price for a in activities) if activities else 1
+
     return [
         {
             "id": a.id,
@@ -20,7 +26,8 @@ def get_recommendations(user_id: int, category: str, db: Session) -> list:
             "price": a.price,
             "rating": a.rating,
             "latitude": a.latitude,
-            "longitude": a.longitude
+            "longitude": a.longitude,
+            "score": round(a.rating / max_rating, 2)  # Normalize skor
         }
         for a in activities
     ]
