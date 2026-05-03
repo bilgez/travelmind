@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "name": "Kaleiçi",
+    "category": "historical",
+    "tags": ["tarihi", "müze", "antik", "gezi"],
+    "price": 0,
+    "duration_min": 90,
+    "popularity": 9.2
+  },
+  {
+    "id": 2,
+    "name": "Hadrian Kapısı",
+    "category": "historical",
+    "tags": ["tarihi", "antik", "mimari", "gezi"],
+    "price": 0,
+    "duration_min": 30,
+    "popularity": 8.8
+  },
+  {
+    "id": 3,
+    "name": "Antalya Müzesi",
+    "category": "historical",
+    "tags": ["tarihi", "müze", "arkeoloji", "gezi"],
+    "price": 120,
+    "duration_min": 120,
+    "popularity": 9.1
+  },
+  {
+    "id": 4,
+    "name": "Seraser Fine Dining",
+    "category": "restaurant",
+    "tags": ["yemek", "restoran", "akşam yemeği", "balık", "lüks"],
+    "price": 500,
+    "duration_min": 90,
+    "popularity": 9.0
+  },
+  {
+    "id": 5,
+    "name": "7 Mehmet Restaurant",
+    "category": "restaurant",
+    "tags": ["yemek", "restoran", "türk mutfağı", "akşam yemeği"],
+    "price": 300,
+    "duration_min": 90,
+    "popularity": 8.9
+  },
+  {
+    "id": 6,
+    "name": "Club Arma",
+    "category": "nightlife",
+    "tags": ["gece", "kulüp", "eğlence", "bar", "müzik"],
+    "price": 300,
+    "duration_min": 180,
+    "popularity": 8.5
+  },
+  {
+    "id": 7,
+    "name": "Dubliner Irish Pub",
+    "category": "nightlife",
+    "tags": ["gece", "bar", "eğlence", "müzik"],
+    "price": 150,
+    "duration_min": 120,
+    "popularity": 8.2
+  },
+  {
+    "id": 8,
+    "name": "Düden Şelalesi",
+    "category": "nature",
+    "tags": ["doğa", "şelale", "park", "outdoor", "gezi"],
+    "price": 50,
+    "duration_min": 60,
+    "popularity": 8.7
+  },
+  {
+    "id": 9,
+    "name": "Konyaaltı Plajı",
+    "category": "nature",
+    "tags": ["plaj", "deniz", "outdoor", "doğa"],
+    "price": 0,
+    "duration_min": 180,
+    "popularity": 8.6
+  },
+  {
+    "id": 10,
+    "name": "MarkAntalya AVM",
+    "category": "shopping",
+    "tags": ["alışveriş", "avm", "mağaza"],
+    "price": 0,
+    "duration_min": 120,
+    "popularity": 7.8
+  }
+]
