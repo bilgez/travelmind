@@ -19,6 +19,10 @@ class LoginRequest(BaseModel):
 
 @router.post("/register")
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
+    # Şifre uzunluğu kontrol
+    if len(request.password) < 6:
+        raise HTTPException(status_code=400, detail="Sifre en az 6 karakter olmalidir")
+    
     # Email daha önce kullanılmış mı?
     existing = db.query(User).filter(User.email == request.email).first()
     if existing:

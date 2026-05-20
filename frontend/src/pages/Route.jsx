@@ -1,7 +1,23 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
+import { GoogleMap, LoadScript, Marker, Polyline } from '@react-google-maps/api'
 import { optimizeRoute, getBudget } from '../api/index'
+
+const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+
+const mapContainerStyle = { width: '100%', height: '100%' }
+const mapCenter = { lat: 36.8969, lng: 30.7133 }
+const mapOptions = {
+  disableDefaultUI: false,
+  zoomControl: true,
+  streetViewControl: false,
+  mapTypeControl: false,
+  styles: [
+    { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  ]
+}
 
 function StatCard({ value, label, color }) {
   return (
@@ -29,7 +45,6 @@ function ActivityRow({ activity, index, isOptimized }) {
       }`}>
         {index + 1}
       </div>
-
       <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
         <img
           src={activity.image_url || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&q=80'}
@@ -37,7 +52,6 @@ function ActivityRow({ activity, index, isOptimized }) {
           className="w-full h-full object-cover"
         />
       </div>
-
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-gray-900 text-sm truncate">{activity.name}</p>
         <div className="flex items-center gap-2 mt-0.5">
@@ -45,23 +59,11 @@ function ActivityRow({ activity, index, isOptimized }) {
           <span className="text-xs text-gray-400">{activity.rating}</span>
         </div>
       </div>
-
       <div className="text-right flex-shrink-0">
         <p className="text-sm font-semibold text-sky-600">
           {activity.price === 0 ? 'Ucretsiz' : `${activity.price} TL`}
         </p>
-        <p className="text-xs text-gray-400 mt-0.5 capitalize">
-          {activity.category === 'tarihi_yer' ? 'Tarihi Yer' :
-           activity.category === 'plaj' ? 'Plaj' :
-           activity.category === 'restoran' ? 'Restoran' :
-           activity.category === 'doga' ? 'Doga' :
-           activity.category === 'gece_hayati' ? 'Gece' : activity.category}
-        </p>
       </div>
-
-      {index < 10 && isOptimized && (
-        <div className="absolute" />
-      )}
     </motion.div>
   )
 }
@@ -72,7 +74,6 @@ export default function RoutePage() {
   const [route, setRoute] = useState(null)
   const [budget, setBudget] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState('rota')
 
   useEffect(() => {
     const saved = localStorage.getItem('selected_activities')
@@ -87,7 +88,6 @@ export default function RoutePage() {
       setRoute(res.data)
       const budgetRes = await getBudget(1)
       setBudget(budgetRes.data)
-      setActiveTab('optimize')
     } catch {
       alert('Rota olusturulurken hata olustu')
     }
@@ -98,6 +98,15 @@ export default function RoutePage() {
     ? route.optimized_order.map(id => activities.find(a => a.id === id)).filter(Boolean)
     : []
 
+  const mapMarkers = (route ? optimizedActivities : activities).filter(
+    a => a.latitude && a.longitude
+  )
+
+  const polylinePath = mapMarkers.map(a => ({
+    lat: parseFloat(a.latitude),
+    lng: parseFloat(a.longitude)
+  }))
+
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -106,54 +115,39 @@ export default function RoutePage() {
         <button onClick={() => navigate('/')} className="text-xl font-bold text-gray-900">
           Travel<span className="text-sky-500">Mind</span>
         </button>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/planner')}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-sky-500 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/>
-            </svg>
-            Planlayiciya Don
-          </button>
-        </div>
+        <button
+          onClick={() => navigate('/planner')}
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-sky-500 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/>
+          </svg>
+          Planlayiciya Don
+        </button>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8">
 
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">
-            Gezi Rotam
-          </h1>
-          <p className="text-gray-500 text-sm">
-            {activities.length} mekan secildi — AI ile en verimli rotayi hesapla
-          </p>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Gezi Rotam</h1>
+          <p className="text-gray-500 text-sm mt-1">{activities.length} mekan secildi</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* SOL PANEL */}
+          {/* SOL */}
           <div className="lg:col-span-1 space-y-4">
 
-            {/* Secilen mekanlar */}
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-50">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-semibold text-gray-900">Secilen Mekanlar</h2>
-                  <span className="w-6 h-6 bg-sky-50 text-sky-600 rounded-full text-xs font-semibold flex items-center justify-center">
-                    {activities.length}
-                  </span>
-                </div>
+              <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+                <h2 className="font-semibold text-gray-900">Secilen Mekanlar</h2>
+                <span className="w-6 h-6 bg-sky-50 text-sky-600 rounded-full text-xs font-semibold flex items-center justify-center">
+                  {activities.length}
+                </span>
               </div>
               <div className="p-4 space-y-2">
                 {activities.map((activity, index) => (
-                  <ActivityRow
-                    key={activity.id}
-                    activity={activity}
-                    index={index}
-                    isOptimized={false}
-                  />
+                  <ActivityRow key={activity.id} activity={activity} index={index} isOptimized={false} />
                 ))}
               </div>
               <div className="px-4 pb-4">
@@ -184,7 +178,6 @@ export default function RoutePage() {
               </div>
             </div>
 
-            {/* Butce - optimize sonrasi */}
             {budget && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -214,107 +207,50 @@ export default function RoutePage() {
             )}
           </div>
 
-          {/* SAG PANEL */}
+          {/* SAG */}
           <div className="lg:col-span-2 space-y-4">
 
-            {/* Harita alani */}
+            {/* GOOGLE MAPS */}
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+              <div className="px-5 py-4 border-b border-gray-50">
                 <h2 className="font-semibold text-gray-900">Harita</h2>
-                <span className="text-xs bg-amber-50 text-amber-600 px-3 py-1 rounded-full font-medium">
-                  Google Maps yakinda eklenecek
-                </span>
               </div>
-
-              {/* Harita placeholder - koordinatlar hazir */}
-              <div className="relative h-80 bg-gradient-to-br from-sky-50 to-blue-100 flex items-center justify-center">
-
-                {/* Sahte harita grid */}
-                <div className="absolute inset-0 opacity-20">
-                  {[...Array(8)].map((_, i) => (
-                    <div key={i} className="absolute border-sky-300 border-dashed"
-                      style={{
-                        left: `${(i + 1) * 12}%`,
-                        top: 0, bottom: 0,
-                        borderLeftWidth: '1px'
-                      }}
-                    />
-                  ))}
-                  {[...Array(6)].map((_, i) => (
-                    <div key={i} className="absolute border-sky-300 border-dashed"
-                      style={{
-                        top: `${(i + 1) * 16}%`,
-                        left: 0, right: 0,
-                        borderTopWidth: '1px'
-                      }}
-                    />
-                  ))}
-                </div>
-
-                {/* Aktivite pinleri */}
-                {activities.slice(0, 6).map((activity, i) => (
-                  <motion.div
-                    key={activity.id}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="absolute"
-                    style={{
-                      left: `${15 + (i % 3) * 28}%`,
-                      top: `${20 + Math.floor(i / 3) * 45}%`,
-                    }}
+              <div className="h-96">
+                <LoadScript googleMapsApiKey={MAPS_API_KEY}>
+                  <GoogleMap
+                    mapContainerStyle={mapContainerStyle}
+                    center={mapCenter}
+                    zoom={12}
+                    options={mapOptions}
                   >
-                    <div className="relative group cursor-pointer">
-                      <div className="w-8 h-8 bg-sky-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold">
-                        {i + 1}
-                      </div>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                        {activity.name}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-
-                {/* Rota cizgisi */}
-                {route && activities.length > 1 && (
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
-                    {activities.slice(0, -1).map((_, i) => {
-                      const x1 = 15 + (i % 3) * 28
-                      const y1 = 20 + Math.floor(i / 3) * 45
-                      const x2 = 15 + ((i + 1) % 3) * 28
-                      const y2 = 20 + Math.floor((i + 1) / 3) * 45
-                      return (
-                        <motion.line
-                          key={i}
-                          x1={`${x1 + 4}%`} y1={`${y1 + 4}%`}
-                          x2={`${x2 + 4}%`} y2={`${y2 + 4}%`}
-                          stroke="#38bdf8" strokeWidth="2"
-                          strokeDasharray="5,5"
-                          initial={{ pathLength: 0 }}
-                          animate={{ pathLength: 1 }}
-                          transition={{ delay: i * 0.2, duration: 0.5 }}
-                        />
-                      )
-                    })}
-                  </svg>
-                )}
-
-                {!route && (
-                  <div className="text-center z-10">
-                    <div className="w-14 h-14 bg-white rounded-2xl shadow-md flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-7 h-7 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                      </svg>
-                    </div>
-                    <p className="text-gray-500 text-sm font-medium">Rotani optimize et</p>
-                    <p className="text-gray-400 text-xs mt-1">Mekanlar haritada gozukecek</p>
-                  </div>
-                )}
+                    {mapMarkers.map((activity, index) => (
+                      <Marker
+                        key={activity.id}
+                        position={{ lat: parseFloat(activity.latitude), lng: parseFloat(activity.longitude) }}
+                        label={{
+                          text: `${index + 1}`,
+                          color: 'white',
+                          fontWeight: 'bold',
+                          fontSize: '12px'
+                        }}
+                        title={activity.name}
+                      />
+                    ))}
+                    {route && polylinePath.length > 1 && (
+                      <Polyline
+                        path={polylinePath}
+                        options={{
+                          strokeColor: '#38bdf8',
+                          strokeOpacity: 0.8,
+                          strokeWeight: 3,
+                        }}
+                      />
+                    )}
+                  </GoogleMap>
+                </LoadScript>
               </div>
             </div>
 
-            {/* Optimize edilmis rota */}
             {route && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -324,27 +260,19 @@ export default function RoutePage() {
                 <div className="px-5 py-4 border-b border-gray-50">
                   <h2 className="font-semibold text-gray-900">Optimize Edilmis Rota</h2>
                 </div>
-
-                {/* Stats */}
                 <div className="p-5">
                   <div className="grid grid-cols-3 gap-3 mb-6">
                     <StatCard value={`${route.total_distance} km`} label="Toplam Mesafe" color="text-sky-600" />
                     <StatCard value={`${route.total_duration} saat`} label="Tahmini Sure" color="text-violet-600" />
                     <StatCard value={`${route.total_cost_estimate} TL`} label="Maliyet" color="text-emerald-600" />
                   </div>
-
-                  {/* Siralanmis aktiviteler */}
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                       Onerilen Ziyaret Sirasi
                     </p>
                     {optimizedActivities.map((activity, index) => (
                       <div key={activity.id}>
-                        <ActivityRow
-                          activity={activity}
-                          index={index}
-                          isOptimized={true}
-                        />
+                        <ActivityRow activity={activity} index={index} isOptimized={true} />
                         {index < optimizedActivities.length - 1 && (
                           <div className="flex items-center gap-2 py-1 pl-14">
                             <div className="w-px h-4 bg-sky-200 ml-4"></div>
@@ -357,7 +285,6 @@ export default function RoutePage() {
                 </div>
               </motion.div>
             )}
-
           </div>
         </div>
       </div>
