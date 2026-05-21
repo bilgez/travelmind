@@ -1,0 +1,84 @@
+[
+  {"id": 1,  "name": "Kaleiçi (Eski Şehir)",       "category": "historical",  "price": 0,   "duration_min": 120, "popularity": 9.5, "lat": 36.8841, "lng": 30.7056},
+  {"id": 2,  "name": "Hadrian Kapısı",              "category": "historical",  "price": 0,   "duration_min": 45,  "popularity": 9.2, "lat": 36.8847, "lng": 30.7063},
+  {"id": 3,  "name": "Yivli Minare",                "category": "historical",  "price": 0,   "duration_min": 30,  "popularity": 8.5, "lat": 36.8872, "lng": 30.6991},
+  {"id": 4,  "name": "Saat Kulesi",                 "category": "historical",  "price": 0,   "duration_min": 20,  "popularity": 8.2, "lat": 36.8850, "lng": 30.7020},
+  {"id": 5,  "name": "Hıdırlık Kulesi",             "category": "historical",  "price": 0,   "duration_min": 30,  "popularity": 8.0, "lat": 36.8800, "lng": 30.7090},
+
+  {"id": 6,  "name": "Perge Antik Kenti",           "category": "ruins",       "price": 120, "duration_min": 180, "popularity": 9.0, "lat": 36.9610, "lng": 30.8530},
+  {"id": 7,  "name": "Aspendos Tiyatrosu",          "category": "ruins",       "price": 150, "duration_min": 150, "popularity": 9.3, "lat": 36.9400, "lng": 31.1720},
+  {"id": 8,  "name": "Termessos Antik Kenti",       "category": "ruins",       "price": 80,  "duration_min": 240, "popularity": 8.8, "lat": 37.0560, "lng": 30.4690},
+  {"id": 9,  "name": "Phaselis Antik Kenti",        "category": "ruins",       "price": 80,  "duration_min": 150, "popularity": 8.6, "lat": 36.5240, "lng": 30.5550},
+  {"id": 10, "name": "Olympos Antik Kenti",         "category": "ruins",       "price": 60,  "duration_min": 120, "popularity": 8.4, "lat": 36.3970, "lng": 30.4830},
+
+  {"id": 11, "name": "Antalya Müzesi",              "category": "museum",      "price": 60,  "duration_min": 120, "popularity": 9.1, "lat": 36.8872, "lng": 30.6891},
+  {"id": 12, "name": "Kaleiçi Müzesi",              "category": "museum",      "price": 30,  "duration_min": 60,  "popularity": 8.0, "lat": 36.8843, "lng": 30.7050},
+  {"id": 13, "name": "Suna & İnan Kıraç Müzesi",   "category": "museum",      "price": 20,  "duration_min": 60,  "popularity": 8.2, "lat": 36.8845, "lng": 30.7048},
+
+  {"id": 14, "name": "Antalya Akvaryumu",           "category": "themepark",   "price": 250, "duration_min": 150, "popularity": 8.9, "lat": 36.8780, "lng": 30.6540},
+  {"id": 15, "name": "Land of Legends",             "category": "themepark",   "price": 400, "duration_min": 480, "popularity": 9.0, "lat": 36.8630, "lng": 31.0560},
+  {"id": 16, "name": "Antalya Hayvanat Bahçesi",    "category": "themepark",   "price": 80,  "duration_min": 180, "popularity": 8.1, "lat": 36.9100, "lng": 30.7200},
+
+  {"id": 17, "name": "Konyaaltı Plajı",             "category": "beach",       "price": 0,   "duration_min": 180, "popularity": 9.4, "lat": 36.8650, "lng": 30.6300},
+  {"id": 18, "name": "Lara Plajı",                  "category": "beach",       "price": 0,   "duration_min": 180, "popularity": 9.0, "lat": 36.8400, "lng": 30.7900},
+  {"id": 19, "name": "Mermerli Plajı",              "category": "beach",       "price": 30,  "duration_min": 120, "popularity": 8.5, "lat": 36.8820, "lng": 30.7080},
+  {"id": 20, "name": "Kaputaş Plajı",               "category": "beach",       "price": 0,   "duration_min": 180, "popularity": 9.2, "lat": 36.2060, "lng": 29.6930},
+  {"id": 21, "name": "Çıralı Plajı",                "category": "beach",       "price": 0,   "duration_min": 180, "popularity": 8.8, "lat": 36.4160, "lng": 30.4730},
+
+  {"id": 22, "name": "Club Arma Beach",             "category": "beachclub",   "price": 150, "duration_min": 240, "popularity": 8.7, "lat": 36.8830, "lng": 30.7040},
+  {"id": 23, "name": "Konyaaltı Beach Park",        "category": "beachclub",   "price": 50,  "duration_min": 240, "popularity": 8.5, "lat": 36.8660, "lng": 30.6310},
+  {"id": 24, "name": "Lara Beach Club",             "category": "beachclub",   "price": 120, "duration_min": 240, "popularity": 8.3, "lat": 36.8410, "lng": 30.7910},
+
+  {"id": 25, "name": "Düden Şelalesi (Alt)",        "category": "waterfall",   "price": 0,   "duration_min": 90,  "popularity": 9.2, "lat": 36.9050, "lng": 30.7700},
+  {"id": 26, "name": "Düden Şelalesi (Üst)",        "category": "waterfall",   "price": 0,   "duration_min": 90,  "popularity": 8.8, "lat": 36.9800, "lng": 30.7600},
+  {"id": 27, "name": "Kurşunlu Şelalesi",           "category": "waterfall",   "price": 30,  "duration_min": 90,  "popularity": 8.5, "lat": 36.9950, "lng": 30.7820},
+  {"id": 28, "name": "Manavgat Şelalesi",           "category": "waterfall",   "price": 0,   "duration_min": 60,  "popularity": 8.6, "lat": 37.0700, "lng": 31.5130},
+
+  {"id": 29, "name": "Konyaaltı Sahil Parkı",       "category": "park",        "price": 0,   "duration_min": 90,  "popularity": 8.8, "lat": 36.8660, "lng": 30.6200},
+  {"id": 30, "name": "Atatürk Parkı",               "category": "park",        "price": 0,   "duration_min": 60,  "popularity": 8.0, "lat": 36.8880, "lng": 30.7010},
+  {"id": 31, "name": "Düden Parkı",                 "category": "park",        "price": 0,   "duration_min": 90,  "popularity": 8.3, "lat": 36.9060, "lng": 30.7710},
+  {"id": 32, "name": "Köprülü Kanyon Milli Parkı",  "category": "park",        "price": 0,   "duration_min": 240, "popularity": 8.9, "lat": 37.1720, "lng": 31.4530},
+
+  {"id": 33, "name": "Dim Mağarası",                "category": "cave",        "price": 50,  "duration_min": 90,  "popularity": 8.7, "lat": 36.5530, "lng": 32.0870},
+  {"id": 34, "name": "Karain Mağarası",             "category": "cave",        "price": 40,  "duration_min": 90,  "popularity": 8.4, "lat": 37.0640, "lng": 30.5580},
+  {"id": 35, "name": "Altınbeşik Mağarası",         "category": "cave",        "price": 60,  "duration_min": 120, "popularity": 8.5, "lat": 37.1140, "lng": 31.9620},
+
+  {"id": 36, "name": "Kaleiçi Bazaar",              "category": "market",      "price": 0,   "duration_min": 90,  "popularity": 8.6, "lat": 36.8843, "lng": 30.7048},
+  {"id": 37, "name": "Antalya Bit Pazarı",          "category": "market",      "price": 0,   "duration_min": 60,  "popularity": 7.9, "lat": 36.8920, "lng": 30.7100},
+  {"id": 38, "name": "Doğu Garaj Pazarı",           "category": "market",      "price": 0,   "duration_min": 60,  "popularity": 7.7, "lat": 36.8980, "lng": 30.7150},
+
+  {"id": 39, "name": "MarkAntalya AVM",             "category": "mall",        "price": 0,   "duration_min": 120, "popularity": 8.0, "lat": 36.8900, "lng": 30.6950},
+  {"id": 40, "name": "TerraCity AVM",               "category": "mall",        "price": 0,   "duration_min": 120, "popularity": 7.9, "lat": 36.8960, "lng": 30.6880},
+  {"id": 41, "name": "Deepo AVM",                   "category": "mall",        "price": 0,   "duration_min": 120, "popularity": 7.8, "lat": 36.9010, "lng": 30.6820},
+
+  {"id": 42, "name": "Kaleiçi Dükkanları",          "category": "shopping",    "price": 0,   "duration_min": 90,  "popularity": 8.4, "lat": 36.8843, "lng": 30.7048},
+  {"id": 43, "name": "Migros Antalya",              "category": "shopping",    "price": 0,   "duration_min": 60,  "popularity": 7.5, "lat": 36.8870, "lng": 30.6900},
+
+  {"id": 44, "name": "Antalya Resim ve Heykel Müzesi", "category": "gallery",  "price": 20,  "duration_min": 60,  "popularity": 7.8, "lat": 36.8880, "lng": 30.7000},
+  {"id": 45, "name": "Kaleiçi Sanat Galerileri",   "category": "gallery",     "price": 0,   "duration_min": 60,  "popularity": 7.6, "lat": 36.8843, "lng": 30.7050},
+
+  {"id": 46, "name": "7 Mehmet Restaurant",         "category": "restaurant",  "price": 200, "duration_min": 90,  "popularity": 9.0, "lat": 36.8820, "lng": 30.7100},
+  {"id": 47, "name": "Seraser Fine Dining",         "category": "restaurant",  "price": 400, "duration_min": 120, "popularity": 8.8, "lat": 36.8835, "lng": 30.7048},
+  {"id": 48, "name": "Vanilla Restaurant",          "category": "restaurant",  "price": 250, "duration_min": 90,  "popularity": 8.6, "lat": 36.8840, "lng": 30.7060},
+  {"id": 49, "name": "Parlak Restaurant",           "category": "restaurant",  "price": 120, "duration_min": 60,  "popularity": 8.3, "lat": 36.8855, "lng": 30.7035},
+  {"id": 50, "name": "Yeşil Ev Kahvaltı",          "category": "restaurant",  "price": 100, "duration_min": 60,  "popularity": 8.5, "lat": 36.8845, "lng": 30.7055},
+
+  {"id": 51, "name": "Club Arma",                   "category": "nightlife",   "price": 150, "duration_min": 180, "popularity": 8.7, "lat": 36.8830, "lng": 30.7040},
+  {"id": 52, "name": "Dubliner Irish Pub",          "category": "nightlife",   "price": 100, "duration_min": 120, "popularity": 8.2, "lat": 36.8810, "lng": 30.7020},
+  {"id": 53, "name": "Konyaaltı Bar Sokağı",        "category": "nightlife",   "price": 80,  "duration_min": 180, "popularity": 8.0, "lat": 36.8660, "lng": 30.6310},
+
+  {"id": 54, "name": "Rafting (Köprülü Kanyon)",    "category": "activity",    "price": 350, "duration_min": 300, "popularity": 9.3, "lat": 37.1720, "lng": 31.4530},
+  {"id": 55, "name": "Tekne Turu (Kaleiçi Marina)", "category": "activity",    "price": 200, "duration_min": 240, "popularity": 9.0, "lat": 36.8820, "lng": 30.7070},
+  {"id": 56, "name": "Tünektepe Teleferik",         "category": "activity",    "price": 80,  "duration_min": 60,  "popularity": 8.6, "lat": 36.8750, "lng": 30.7400},
+  {"id": 57, "name": "Zipline (Tünektepe)",         "category": "activity",    "price": 150, "duration_min": 120, "popularity": 8.8, "lat": 36.8750, "lng": 30.7400},
+  {"id": 58, "name": "Jeep Safari",                 "category": "activity",    "price": 300, "duration_min": 360, "popularity": 8.9, "lat": 36.9000, "lng": 30.8000},
+
+  {"id": 59, "name": "Kesik Minare Camii",          "category": "religious",   "price": 0,   "duration_min": 30,  "popularity": 8.4, "lat": 36.8840, "lng": 30.7045},
+  {"id": 60, "name": "Murat Paşa Camii",            "category": "religious",   "price": 0,   "duration_min": 30,  "popularity": 8.0, "lat": 36.8910, "lng": 30.7020},
+  {"id": 61, "name": "Karatay Medresesi",           "category": "religious",   "price": 20,  "duration_min": 45,  "popularity": 7.8, "lat": 36.8860, "lng": 30.7010},
+  {"id": 62, "name": "İskele Camii",                "category": "religious",   "price": 0,   "duration_min": 30,  "popularity": 7.9, "lat": 36.8830, "lng": 30.7060},
+
+  {"id": 63, "name": "Kalekapı Hamamı",             "category": "wellness",    "price": 200, "duration_min": 90,  "popularity": 8.5, "lat": 36.8848, "lng": 30.7052},
+  {"id": 64, "name": "Sefa Hamamı",                 "category": "wellness",    "price": 150, "duration_min": 90,  "popularity": 8.2, "lat": 36.8838, "lng": 30.7042},
+  {"id": 65, "name": "Antalya Spa & Wellness",      "category": "wellness",    "price": 300, "duration_min": 120, "popularity": 8.0, "lat": 36.8860, "lng": 30.7000}
+]
