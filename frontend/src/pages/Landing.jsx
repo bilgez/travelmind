@@ -5,11 +5,13 @@ import { getAllActivities } from '../api/index'
 
 const CATEGORIES = [
   { key: 'all', label: 'Tümü' },
-  { key: 'tarihi_yer', label: 'Tarihi Yerler' },
-  { key: 'plaj', label: 'Plajlar' },
+  { key: 'tarihi_yer', label: 'Tarihi' },
+  { key: 'plaj', label: 'Plaj' },
   { key: 'doga', label: 'Doğa' },
-  { key: 'restoran', label: 'Restoranlar' },
+  { key: 'restoran', label: 'Restoran' },
   { key: 'gece_hayati', label: 'Gece Hayatı' },
+  { key: 'alisveris', label: 'Alışveriş' },
+  { key: 'eglence', label: 'Eğlence' },
 ]
 
 const QUICK_PROMPTS = [
@@ -20,25 +22,27 @@ const QUICK_PROMPTS = [
 ]
 
 const CATEGORY_SHOWCASE = [
-  { key: 'tarihi_yer', label: 'Tarihi Yerler', count: '12+', image: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&q=80', big: true },
-  { key: 'plaj', label: 'Plajlar', count: '8+', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80', big: false },
-  { key: 'doga', label: 'Doğa & Aktivite', count: '15+', image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80', big: false },
-  { key: 'restoran', label: 'Restoranlar', count: '20+', image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80', big: false },
-  { key: 'gece_hayati', label: 'Gece Hayatı', count: '10+', image: 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?w=600&q=80', big: false },
+  { key: 'tarihi_yer', label: 'Tarihi Yerler', count: '19', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/Side_Ancient_City.jpg/960px-Side_Ancient_City.jpg', big: true },
+  { key: 'plaj', label: 'Plajlar', count: '8', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Kaputas_Beach.JPG/960px-Kaputas_Beach.JPG', big: false },
+  { key: 'doga', label: 'Doğa & Aktivite', count: '16', image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80', big: false },
+  { key: 'restoran', label: 'Restoranlar', count: '5', image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80', big: false },
+  { key: 'alisveris', label: 'Alışveriş', count: '8', image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&q=80', big: false },
 ]
 
 const CATEGORY_FALLBACK = {
-  tarihi_yer: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&q=80',
-  plaj: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80',
+  tarihi_yer: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/Side_Ancient_City.jpg/960px-Side_Ancient_City.jpg',
+  plaj: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Kaputas_Beach.JPG/960px-Kaputas_Beach.JPG',
   doga: 'https://images.unsplash.com/photo-1546180245-c59350c0dc6d?w=600&q=80',
   restoran: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80',
   gece_hayati: 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?w=600&q=80',
+  alisveris: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&q=80',
+  eglence: 'https://images.unsplash.com/photo-1575783970733-1aaedde1db74?w=600&q=80',
 }
 
 const CATEGORY_LABELS = {
   tarihi_yer: 'Tarihi Yer', plaj: 'Plaj', doga: 'Doğa',
   restoran: 'Restoran', gece_hayati: 'Gece Hayatı',
-  alisveris: 'Alışveriş', eglence: 'Eğlence',
+  alisveris: 'Alışveriş', eglence: 'Eğlence & Spa',
 }
 
 function getPlaceImage(a) {
@@ -204,13 +208,17 @@ function ChatMockup() {
       </div>
 
       <div className="space-y-2">
-        {['Kaleiçi Eski Şehir', 'Hadrian Kapısı', 'Perge Antik Kenti'].map((name, i) => (
+        {[
+          { name: 'Kaleiçi Eski Şehir', price: 'Ücretsiz' },
+          { name: 'Hadrian Kapısı', price: 'Ücretsiz' },
+          { name: 'Perge Antik Kenti', price: '590 ₺' },
+        ].map((item, i) => (
           <div key={i} className="flex items-center gap-2.5 bg-gray-50 rounded-xl px-3 py-2.5">
             <div className="w-5 h-5 rounded-lg bg-sky-500 flex items-center justify-center flex-shrink-0">
               <span className="text-white text-[9px] font-bold">{i + 1}</span>
             </div>
-            <span className="text-xs font-medium text-gray-700 flex-1">{name}</span>
-            <span className="text-[10px] text-gray-400">Ücretsiz</span>
+            <span className="text-xs font-medium text-gray-700 flex-1">{item.name}</span>
+            <span className="text-[10px] text-gray-400">{item.price}</span>
           </div>
         ))}
       </div>
@@ -222,8 +230,8 @@ function PlanMockup() {
   const stops = [
     { time: '09:00', name: 'Kaleiçi Eski Şehir', price: 'Ücretsiz', dot: 'bg-sky-400' },
     { time: '11:30', name: 'Hadrian Kapısı', price: 'Ücretsiz', dot: 'bg-violet-400' },
-    { time: '14:00', name: 'Perge Antik Kenti', price: '120 TL', dot: 'bg-emerald-400' },
-    { time: '17:30', name: 'Aspendos Tiyatrosu', price: '150 TL', dot: 'bg-orange-400' },
+    { time: '14:00', name: 'Perge Antik Kenti', price: '590 ₺', dot: 'bg-emerald-400' },
+    { time: '17:30', name: 'Aspendos Tiyatrosu', price: '800 ₺', dot: 'bg-orange-400' },
   ]
   return (
     <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 p-6 max-w-sm w-full">
@@ -247,8 +255,8 @@ function PlanMockup() {
       </div>
 
       <div className="mt-5 pt-4 border-t border-gray-50 flex items-center justify-between">
-        <span className="text-xs text-gray-400">Günlük bütçe</span>
-        <span className="text-sm font-bold text-sky-600">1.180 TL</span>
+        <span className="text-xs text-gray-400">Tahmini toplam</span>
+        <span className="text-sm font-bold text-sky-600">1.390 ₺</span>
       </div>
     </div>
   )
@@ -285,7 +293,7 @@ function MapMockup() {
           <span className="w-1 h-1 bg-gray-300 rounded-full" />
           <span>~6 saat</span>
           <span className="w-1 h-1 bg-gray-300 rounded-full" />
-          <span>540 TL tahmini</span>
+          <span>1.390 TL tahmini</span>
         </div>
       </div>
     </div>
@@ -410,28 +418,23 @@ export default function Landing() {
             Yapay Zeka Destekli Seyahat Planlayıcı
           </motion.p>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="text-8xl md:text-[110px] lg:text-[130px] font-bold italic text-white leading-none tracking-tight mb-4"
-          >
-            Antalya
-          </motion.h1>
+          <div className="mb-2">
+            <motion.h1
+              initial={{ clipPath: 'inset(0 100% 0 0)' }}
+              animate={{ clipPath: 'inset(0 0% 0 0)' }}
+              transition={{ delay: 0.2, duration: 5.0, ease: 'linear' }}
+              className="text-[100px] md:text-[128px] lg:text-[158px] text-white"
+              style={{ fontFamily: "'Pinyon Script', cursive", lineHeight: 1.5 }}
+            >
+              Antalya
+            </motion.h1>
+          </div>
 
-          <motion.p
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.85, duration: 0.7 }}
-            className="text-2xl md:text-3xl font-light text-white/80 mb-10 tracking-wide"
-          >
-            senin tarzında planlandı.
-          </motion.p>
 
           <motion.form
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.1 }}
+            transition={{ delay: 0.8 }}
             onSubmit={handleHeroSearch}
             className="flex items-center bg-white rounded-2xl overflow-hidden shadow-2xl max-w-2xl mb-5"
           >
@@ -458,7 +461,7 @@ export default function Landing() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1.3 }}
+            transition={{ delay: 1.0 }}
             className="flex items-center gap-2 flex-wrap"
           >
             <span className="text-white/40 text-xs">Popüler:</span>
@@ -613,6 +616,111 @@ export default function Landing() {
 
       </section>
 
+      {/* ── EXAMPLE TRIP CARDS ── */}
+      <section className="py-24 bg-white">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex items-end justify-between mb-10">
+            <div>
+              <p className="text-sky-500 text-xs font-semibold uppercase tracking-widest mb-2">Hazır Turlar</p>
+              <h2 className="text-3xl font-bold text-gray-900">Popüler tur paketleri</h2>
+            </div>
+            <button onClick={() => navigate('/planner')}
+              className="hidden md:flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
+              Hepsini gör
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[
+              {
+                title: 'Tarihi Antalya',
+                desc: 'Kaleiçi, Hadrian Kapısı, Perge ve Aspendos — Türkiye\'nin en zengin antik şehri.',
+                days: 3,
+                places: 12,
+                budget: '~3.000 TL',
+                image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Hadrian%27s_Gate%2C_Antalya_01.jpg/960px-Hadrian%27s_Gate%2C_Antalya_01.jpg',
+                tag: 'Tarihi',
+                tagColor: 'bg-amber-50 text-amber-600',
+                prompt: '3 günlük tarihi tur, 1500 TL bütçe',
+              },
+              {
+                title: 'Plaj & Deniz',
+                desc: 'Konyaaltı, Lara, Kaputaş — Akdeniz\'in en mavi koyları ve en güzel plajları.',
+                days: 2,
+                places: 8,
+                budget: '~1.500 TL',
+                image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Kaputas_Beach.JPG/960px-Kaputas_Beach.JPG',
+                tag: 'Plaj',
+                tagColor: 'bg-sky-50 text-sky-600',
+                prompt: '2 günlük plaj ve deniz turu, 1000 TL',
+              },
+              {
+                title: 'Doğa Macerası',
+                desc: 'Düden Şelalesi, Köprülü Kanyon, Güver Uçurumu — adrenalin ve huzurun buluştuğu yer.',
+                days: 2,
+                places: 10,
+                budget: '~2.500 TL',
+                image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80',
+                tag: 'Doğa',
+                tagColor: 'bg-emerald-50 text-emerald-600',
+                prompt: '2 günlük doğa yürüyüşü turu',
+              },
+            ].map((trip, i) => (
+              <motion.div
+                key={i}
+                whileHover={{ y: -4 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => { localStorage.setItem('pending_prompt', trip.prompt); navigate('/planner') }}
+                className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-all cursor-pointer"
+              >
+                <div className="relative h-48 overflow-hidden">
+                  <img src={trip.image} alt={trip.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <span className={`absolute top-3 left-3 text-xs font-semibold px-2.5 py-1 rounded-full ${trip.tagColor}`}>{trip.tag}</span>
+                  <div className="absolute bottom-3 left-4">
+                    <h3 className="text-white font-bold text-base">{trip.title}</h3>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <p className="text-xs text-gray-400 leading-relaxed mb-4">{trip.desc}</p>
+                  <div className="flex items-center gap-3 text-xs text-gray-500 mb-4">
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {trip.days} gün
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      </svg>
+                      {trip.places} mekan
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      ~{trip.budget}
+                    </span>
+                  </div>
+                  <div className="pt-3 border-t border-gray-50">
+                    <span className="text-xs font-semibold text-sky-500 group-hover:text-sky-600 transition-colors flex items-center gap-1">
+                      Turu AI ile kişiselleştir
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── CATEGORY SHOWCASE ── */}
       <section ref={catRef} className="py-24 bg-stone-50">
         <div className="max-w-7xl mx-auto px-6">
@@ -726,13 +834,14 @@ export default function Landing() {
               className="inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-700 text-white font-semibold px-8 py-3.5 rounded-full transition-colors text-sm"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
-              AI ile tüm mekanları keşfet
+              Planlamaya Başla
             </button>
           </div>
         </div>
       </section>
+
 
       {/* ── CTA BANNER ── */}
       <section className="bg-gray-950 py-24">
@@ -742,7 +851,7 @@ export default function Landing() {
             <span className="italic font-light">Antalya</span> gezini<br />şimdi planla.
           </h2>
           <p className="text-gray-400 text-base mb-10 max-w-md mx-auto">
-            Ücretsiz, hesap gerektirmez. Türkçe yaz, rotanı birkaç saniyede al.
+            Ücretsiz. Türkçe yaz, rotanı birkaç saniyede al.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button

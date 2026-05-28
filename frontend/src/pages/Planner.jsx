@@ -21,9 +21,15 @@ const CATEGORY_LABELS = {
   alisveris: 'Alışveriş', eglence: 'Eğlence',
 }
 
+const MUZEKART_VENUES = new Set([
+  'Perge Antik Kenti', 'Aspendos Tiyatrosu', 'Termessos Antik Kenti',
+  'Phaselis Antik Kenti', 'Olympos Antik Kenti', 'Antalya Müzesi',
+  'Kaleiçi Müzesi', 'Karain Mağarası', 'Karatay Medresesi', 'Altınbeşik Mağarası',
+])
+
 const CATEGORY_IMAGES = {
-  tarihi_yer: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400&q=80',
-  plaj: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&q=80',
+  tarihi_yer: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/Side_Ancient_City.jpg/960px-Side_Ancient_City.jpg',
+  plaj: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Kaputas_Beach.JPG/960px-Kaputas_Beach.JPG',
   doga: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400&q=80',
   restoran: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=80',
   gece_hayati: 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?w=400&q=80',
@@ -227,8 +233,14 @@ function ActivityCard({ activity, time, color, index, onRemove, onFocus }) {
             <span className="text-xs text-amber-500 font-medium">★ {activity.rating}</span>
             <span className="text-xs text-gray-300">·</span>
             <span className="text-xs font-semibold text-sky-600">
-              {activity.price === 0 ? 'Ücretsiz' : `${activity.price} TL`}
+              {activity.price === 0 ? 'Ücretsiz' : `${activity.price} ₺`}
             </span>
+            {MUZEKART_VENUES.has(activity.name) && (
+              <>
+                <span className="text-xs text-gray-300">·</span>
+                <span className="text-xs italic text-emerald-600">Müzekart: ücretsiz</span>
+              </>
+            )}
             <span className="text-xs text-gray-300">·</span>
             <span className="text-xs text-gray-400">{time}</span>
           </div>
@@ -286,10 +298,15 @@ export default function Planner() {
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }
-  const username = localStorage.getItem('username') || 'Gezgin'
-
-  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_API_KEY || '' })
+  const { isLoaded, loadError } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_API_KEY || '' })
+  const [mapFailed, setMapFailed] = useState(false)
+  const mapReady = isLoaded && !loadError && !mapFailed
   const onMapLoad = useCallback(m => setMapInstance(m), [])
+
+  useEffect(() => {
+    window.gm_authFailure = () => setMapFailed(true)
+    return () => { delete window.gm_authFailure }
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -438,7 +455,51 @@ export default function Planner() {
     setLoading(false)
   }
 
+  const [savedToast, setSavedToast] = useState(false)
+
+  const savePlan = () => {
+    if (!plan) return
+    const raw = localStorage.getItem('travelmind_plans')
+    const plans = raw ? JSON.parse(raw) : []
+    const existing = plans.findIndex(p => p.id === plan.id)
+    const entry = {
+      id: plan.id || Date.now().toString(),
+      title: plan.title,
+      createdAt: plan.createdAt || new Date().toISOString(),
+      days: plan.days,
+      totalCost: plan.totalCost,
+      budget: plan.budget,
+      duration: plan.duration,
+      status: 'active',
+    }
+    if (existing >= 0) plans[existing] = entry
+    else plans.unshift(entry)
+    localStorage.setItem('travelmind_plans', JSON.stringify(plans))
+    setPlan(prev => ({ ...prev, id: entry.id, createdAt: entry.createdAt }))
+    setSavedToast(true)
+    setTimeout(() => setSavedToast(false), 2500)
+  }
+
   useEffect(() => {
+    const restore = localStorage.getItem('restore_plan')
+    if (restore) {
+      localStorage.removeItem('restore_plan')
+      try {
+        const restoredPlan = JSON.parse(restore)
+        setTimeout(() => {
+          setPlan(restoredPlan)
+          setActiveDay(restoredPlan.days?.[0]?.day || null)
+          sessionContext.current.budget = restoredPlan.budget || null
+          sessionContext.current.days = restoredPlan.duration || null
+          setMessages(prev => [...prev, {
+            role: 'ai',
+            text: `"${restoredPlan.title}" planı yüklendi! Değişiklik yapmak için mesaj yazabilirsin.`,
+            time: new Date().toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })
+          }])
+        }, 0)
+      } catch { /* ignore */ }
+      return
+    }
     const pending = localStorage.getItem('pending_prompt')
     if (pending) {
       localStorage.removeItem('pending_prompt')
@@ -492,10 +553,39 @@ export default function Planner() {
             </>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden md:block text-sm text-gray-400">
-            Hoş geldin, <span className="font-semibold text-gray-700">{username}</span>
-          </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/plans')}
+            className="hidden md:flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 px-3 py-2 rounded-full transition-colors"
+          >
+            Planlarım
+          </button>
+          {plan && (
+            <button
+              onClick={savePlan}
+              className={`flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-full transition-all border ${
+                savedToast
+                  ? 'bg-emerald-500 text-white border-emerald-500'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'
+              }`}
+            >
+              {savedToast ? (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Kaydedildi
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                  Kaydet
+                </>
+              )}
+            </button>
+          )}
           {plan && (
             <button
               onClick={goToRoute}
@@ -834,9 +924,23 @@ export default function Planner() {
 
         {/* ── RIGHT: MAP ── */}
         <div className="flex-shrink-0 bg-gray-100 relative" style={{ width: rightWidth }}>
-          {!isLoaded ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+          {!mapReady ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 px-8 text-center">
+              {isLoaded ? (
+                <>
+                  <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-700">Harita yüklenemedi</p>
+                  <p className="text-xs text-gray-400 leading-relaxed max-w-xs">
+                    Google Maps günlük kotası doldu. Plan oluşturma ve kaydetme çalışmaya devam eder. Harita yarın yenilenir.
+                  </p>
+                </>
+              ) : (
+                <div className="w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+              )}
             </div>
           ) : (
             <GoogleMap
@@ -884,8 +988,11 @@ export default function Planner() {
                     <p style={{ fontWeight: '700', fontSize: 12, margin: '0 0 3px' }}>{selectedMarker.name}</p>
                     <p style={{ fontSize: 11, color: '#f59e0b', margin: '0 0 2px' }}>★ {selectedMarker.rating}</p>
                     <p style={{ fontSize: 11, color: '#0ea5e9', fontWeight: 600 }}>
-                      {selectedMarker.price === 0 ? 'Ücretsiz' : `${selectedMarker.price} TL`}
+                      {selectedMarker.price === 0 ? 'Ücretsiz' : `${selectedMarker.price} ₺`}
                     </p>
+                    {MUZEKART_VENUES.has(selectedMarker.name) && (
+                      <p style={{ fontSize: 10, color: '#059669', fontStyle: 'italic', margin: '2px 0 0' }}>Müzekart: ücretsiz</p>
+                    )}
                   </div>
                 </InfoWindow>
               )}

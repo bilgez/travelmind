@@ -8,8 +8,8 @@ const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 const DAY_COLORS = ['#38bdf8', '#a78bfa', '#34d399', '#fb923c', '#f472b6', '#fbbf24']
 
 const CATEGORY_IMAGES = {
-  tarihi_yer:  'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=300&q=80',
-  plaj:        'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=300&q=80',
+  tarihi_yer:  'https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/Side_Ancient_City.jpg/960px-Side_Ancient_City.jpg',
+  plaj:        'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Kaputas_Beach.JPG/960px-Kaputas_Beach.JPG',
   doga:        'https://images.unsplash.com/photo-1546180245-c59350c0dc6d?w=300&q=80',
   restoran:    'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=300&q=80',
   gece_hayati: 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?w=300&q=80',
@@ -20,6 +20,12 @@ const CATEGORY_LABELS = {
   restoran: 'Restoran', gece_hayati: 'Gece Hayatı',
   alisveris: 'Alışveriş', eglence: 'Eğlence',
 }
+
+const MUZEKART_VENUES = new Set([
+  'Perge Antik Kenti', 'Aspendos Tiyatrosu', 'Termessos Antik Kenti',
+  'Phaselis Antik Kenti', 'Olympos Antik Kenti', 'Antalya Müzesi',
+  'Kaleiçi Müzesi', 'Karain Mağarası', 'Karatay Medresesi', 'Altınbeşik Mağarası',
+])
 
 const mapOptions = {
   disableDefaultUI: true,
@@ -115,7 +121,14 @@ export default function RoutePage() {
     document.addEventListener('mouseup', onUp)
   }
 
-  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_API_KEY })
+  const { isLoaded, loadError } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_API_KEY })
+  const [mapFailed, setMapFailed] = useState(false)
+  const mapReady = isLoaded && !loadError && !mapFailed
+
+  useEffect(() => {
+    window.gm_authFailure = () => setMapFailed(true)
+    return () => { delete window.gm_authFailure }
+  }, [])
 
   // OSRM road-following routes
   useEffect(() => {
@@ -302,9 +315,14 @@ export default function RoutePage() {
                     <p className="text-sm font-semibold text-gray-900 truncate">{activity.name}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{CATEGORY_LABELS[activity.category] || activity.category}</p>
                   </div>
-                  <span className="text-xs font-semibold text-sky-600 flex-shrink-0">
-                    {activity.price === 0 ? 'Ücretsiz' : `${activity.price} TL`}
-                  </span>
+                  <div className="flex flex-col items-end flex-shrink-0 gap-0.5">
+                    <span className="text-xs font-semibold text-sky-600">
+                      {activity.price === 0 ? 'Ücretsiz' : `${activity.price} ₺`}
+                    </span>
+                    {MUZEKART_VENUES.has(activity.name) && (
+                      <span className="text-[10px] italic text-emerald-600 whitespace-nowrap">Müzekart: ücretsiz</span>
+                    )}
+                  </div>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -317,7 +335,25 @@ export default function RoutePage() {
           className="w-1 flex-shrink-0 bg-gray-100 hover:bg-sky-400 cursor-col-resize transition-colors"
         />
         <div className="flex-1 relative">
-          {isLoaded ? (
+          {!mapReady ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 px-8 text-center bg-gray-50">
+              {isLoaded ? (
+                <>
+                  <div className="w-12 h-12 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-700">Harita yüklenemedi</p>
+                  <p className="text-xs text-gray-400 leading-relaxed max-w-xs">
+                    Google Maps günlük kotası doldu. Rota listesi solda görünmeye devam eder. Harita yarın yenilenir.
+                  </p>
+                </>
+              ) : (
+                <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+              )}
+            </div>
+          ) : (
             <GoogleMap
               mapContainerStyle={{ width: '100%', height: '100%' }}
               center={mapCenter}
@@ -356,16 +392,15 @@ export default function RoutePage() {
                     <p className="font-semibold text-gray-900 text-sm">{focused.name}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{CATEGORY_LABELS[focused.category] || focused.category}</p>
                     <p className="text-xs font-semibold text-sky-600 mt-1">
-                      {focused.price === 0 ? 'Ücretsiz' : `${focused.price} TL`}
+                      {focused.price === 0 ? 'Ücretsiz' : `${focused.price} ₺`}
                     </p>
+                    {MUZEKART_VENUES.has(focused.name) && (
+                      <p className="text-[10px] italic text-emerald-600 mt-0.5">Müzekart: ücretsiz</p>
+                    )}
                   </div>
                 </InfoWindow>
               )}
             </GoogleMap>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100">
-              <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-            </div>
           )}
 
           {/* Day legend overlay */}
