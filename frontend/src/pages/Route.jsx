@@ -91,6 +91,29 @@ export default function RoutePage() {
   const [focused, setFocused] = useState(null)
   const [map, setMap] = useState(null)
   const polylinesRef = useRef([])
+  const [leftWidth, setLeftWidth] = useState(() => Math.max(380, Math.round(window.innerWidth * 0.28)))
+  const dragState = useRef(null)
+
+  const handleResizeStart = (e) => {
+    e.preventDefault()
+    dragState.current = { startX: e.clientX, startWidth: leftWidth }
+    const onMove = (e) => {
+      if (!dragState.current) return
+      const delta = e.clientX - dragState.current.startX
+      setLeftWidth(Math.min(620, Math.max(280, dragState.current.startWidth + delta)))
+    }
+    const onUp = () => {
+      dragState.current = null
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'col-resize'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_API_KEY })
 
@@ -210,7 +233,7 @@ export default function RoutePage() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* LEFT PANEL */}
-        <div className="w-80 flex-shrink-0 flex flex-col bg-white border-r border-gray-100 overflow-hidden">
+        <div className="flex-shrink-0 flex flex-col bg-white overflow-hidden" style={{ width: leftWidth }}>
 
           <div className="px-5 py-5 border-b border-gray-100 flex-shrink-0">
             <h1 className="text-lg font-bold text-gray-900">Gezi Rotam</h1>
@@ -289,6 +312,10 @@ export default function RoutePage() {
         </div>
 
         {/* MAP */}
+        <div
+          onMouseDown={handleResizeStart}
+          className="w-1 flex-shrink-0 bg-gray-100 hover:bg-sky-400 cursor-col-resize transition-colors"
+        />
         <div className="flex-1 relative">
           {isLoaded ? (
             <GoogleMap

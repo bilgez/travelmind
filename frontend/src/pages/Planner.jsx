@@ -189,19 +189,29 @@ function ActivityCard({ activity, time, color, index, onRemove, onFocus }) {
       onClick={() => onFocus(activity)}
       className="bg-white rounded-xl border border-gray-100 mb-2 overflow-hidden hover:border-gray-200 hover:shadow-sm transition-all cursor-pointer group"
     >
-      <div className="flex items-start gap-3 p-3.5">
-        {/* Number badge */}
-        <div
-          className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-0.5"
-          style={{ backgroundColor: color }}
-        >
-          {index}
+      <div className="flex items-center gap-4 p-4">
+        {/* Photo */}
+        <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
+          <img
+            src={getActivityImage(activity)}
+            alt={activity.name}
+            className="w-full h-full object-cover"
+            onError={e => { e.target.src = 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&q=80' }}
+          />
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-1">
-            <p className="font-semibold text-gray-900 text-sm leading-tight">{activity.name}</p>
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                style={{ backgroundColor: color }}
+              >
+                {index}
+              </div>
+              <p className="font-semibold text-gray-900 text-sm leading-tight">{activity.name}</p>
+            </div>
             <button
               onClick={e => { e.stopPropagation(); onRemove() }}
               className="opacity-0 group-hover:opacity-100 w-5 h-5 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 flex items-center justify-center"
@@ -212,29 +222,19 @@ function ActivityCard({ activity, time, color, index, onRemove, onFocus }) {
             </button>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] text-gray-400">{CATEGORY_LABELS[activity.category] || activity.category}</span>
-            <span className="text-[11px] text-gray-300">·</span>
-            <span className="text-[11px] text-amber-500 font-medium">★ {activity.rating}</span>
-            <span className="text-[11px] text-gray-300">·</span>
-            <span className="text-[11px] font-semibold text-sky-600">
+            <span className="text-xs text-gray-400">{CATEGORY_LABELS[activity.category] || activity.category}</span>
+            <span className="text-xs text-gray-300">·</span>
+            <span className="text-xs text-amber-500 font-medium">★ {activity.rating}</span>
+            <span className="text-xs text-gray-300">·</span>
+            <span className="text-xs font-semibold text-sky-600">
               {activity.price === 0 ? 'Ücretsiz' : `${activity.price} TL`}
             </span>
-            <span className="text-[11px] text-gray-300">·</span>
-            <span className="text-[11px] text-gray-400">{time}</span>
+            <span className="text-xs text-gray-300">·</span>
+            <span className="text-xs text-gray-400">{time}</span>
           </div>
           {activity.description && (
-            <p className="text-[11px] text-gray-400 mt-1 line-clamp-1 leading-relaxed">{activity.description}</p>
+            <p className="text-xs text-gray-400 mt-1.5 line-clamp-1 leading-relaxed">{activity.description}</p>
           )}
-        </div>
-
-        {/* Photo */}
-        <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
-          <img
-            src={getActivityImage(activity)}
-            alt={activity.name}
-            className="w-full h-full object-cover"
-            onError={e => { e.target.src = 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&q=80' }}
-          />
         </div>
       </div>
     </motion.div>
@@ -258,9 +258,37 @@ export default function Planner() {
   const [selectedMarker, setSelectedMarker] = useState(null)
   const [mapInstance, setMapInstance] = useState(null)
   const [activeDay, setActiveDay] = useState(null)
+  const [leftWidth, setLeftWidth] = useState(() => Math.max(400, Math.round(window.innerWidth * 0.25)))
+  const [rightWidth, setRightWidth] = useState(() => Math.round(window.innerWidth * 0.33))
+  const dragState = useRef(null)
+
+  const handleResizeStart = (panel, e) => {
+    e.preventDefault()
+    dragState.current = { panel, startX: e.clientX, startWidth: panel === 'left' ? leftWidth : rightWidth }
+    const onMove = (e) => {
+      if (!dragState.current) return
+      const delta = e.clientX - dragState.current.startX
+      if (dragState.current.panel === 'left') {
+        setLeftWidth(Math.min(560, Math.max(400, dragState.current.startWidth + delta)))
+      } else {
+        setRightWidth(Math.min(760, Math.max(360, dragState.current.startWidth - delta)))
+      }
+    }
+    const onUp = () => {
+      dragState.current = null
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'col-resize'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
   const username = localStorage.getItem('username') || 'Gezgin'
 
-  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: MAPS_API_KEY || '' })
+  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_API_KEY || '' })
   const onMapLoad = useCallback(m => setMapInstance(m), [])
 
   useEffect(() => {
@@ -486,7 +514,7 @@ export default function Planner() {
       <div className="flex-1 flex overflow-hidden">
 
         {/* ── LEFT: AI CHAT ── */}
-        <div className="w-[300px] flex-shrink-0 flex flex-col bg-white border-r border-gray-100">
+        <div className="flex-shrink-0 flex flex-col bg-white" style={{ width: leftWidth }}>
 
           {/* Chat header */}
           <div className="px-4 py-3.5 border-b border-gray-50">
@@ -608,6 +636,12 @@ export default function Planner() {
           </div>
         </div>
 
+        {/* Resize handle — left */}
+        <div
+          onMouseDown={(e) => handleResizeStart('left', e)}
+          className="w-1 flex-shrink-0 bg-gray-100 hover:bg-sky-400 cursor-col-resize transition-colors"
+        />
+
         {/* ── MIDDLE: ITINERARY ── */}
         <div className="flex-1 bg-stone-50 overflow-y-auto min-w-0">
           {!plan ? (
@@ -640,7 +674,7 @@ export default function Planner() {
           ) : (
 
             /* Plan content */
-            <div className="p-5 max-w-2xl">
+            <div className="p-6 w-full">
 
               {/* Trip header */}
               <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-5">
@@ -792,8 +826,14 @@ export default function Planner() {
           )}
         </div>
 
+        {/* Resize handle — right */}
+        <div
+          onMouseDown={(e) => handleResizeStart('right', e)}
+          className="w-1 flex-shrink-0 bg-gray-100 hover:bg-sky-400 cursor-col-resize transition-colors"
+        />
+
         {/* ── RIGHT: MAP ── */}
-        <div className="w-[360px] flex-shrink-0 border-l border-gray-100 bg-gray-100 relative">
+        <div className="flex-shrink-0 bg-gray-100 relative" style={{ width: rightWidth }}>
           {!isLoaded ? (
             <div className="flex items-center justify-center h-full">
               <div className="w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
