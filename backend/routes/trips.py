@@ -21,27 +21,24 @@ class OptimizeRouteRequest(BaseModel):
 
 @router.post("/parse-input")
 def parse_user_input(request: ParseInputRequest, db: Session = Depends(get_db)):
-    # Kullanici var mi?
-    user = db.query(User).filter(User.id == request.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="Kullanici bulunamadi")
-    
-    # NLP ile parse et
     parsed = parse_input(request.text)
-    
-    # Trips tablosuna kaydet
-    new_trip = Trip(
-        user_id=request.user_id,
-        title=request.text[:50],
-        parsed_plan=str(parsed),
-        status="parsed"
-    )
-    db.add(new_trip)
-    db.commit()
-    db.refresh(new_trip)
-    
+
+    user = db.query(User).filter(User.id == request.user_id).first()
+    trip_id = None
+    if user:
+        new_trip = Trip(
+            user_id=request.user_id,
+            title=request.text[:50],
+            parsed_plan=str(parsed),
+            status="parsed"
+        )
+        db.add(new_trip)
+        db.commit()
+        db.refresh(new_trip)
+        trip_id = new_trip.id
+
     return {
-        "trip_id": new_trip.id,
+        "trip_id": trip_id,
         "parsed_plan": parsed,
         "message": "Plan basariyla olusturuldu!"
     }
