@@ -4,6 +4,79 @@ Türk Hava Kurumu Üniversitesi | 2025-2026 Güz Dönemi
 
 ---
 
+## 🚀 Projeyi Çalıştırma
+
+### Gereksinimler
+Bunlar bilgisayarında kurulu olmalı:
+- [Python 3.10+](https://www.python.org/downloads/) — kurulumda **"Add to PATH"** seçeneğini işaretle
+- [Node.js 18+](https://nodejs.org/)
+- [PostgreSQL 18](https://www.postgresql.org/download/windows/) — kurulum sırasında belirlediğin şifreyi unutma
+
+---
+
+### Adım 1 — Repo'yu çek
+
+```bash
+git clone https://github.com/bilgez/travelmind.git
+cd travelmind
+git checkout bilgez
+```
+
+### Adım 2 — PostgreSQL'de veritabanı oluştur
+
+pgAdmin ya da SQL Shell'i aç, şunu çalıştır:
+
+```sql
+CREATE DATABASE travelmind;
+```
+
+### Adım 3 — Backend .env dosyasını oluştur
+
+```bash
+cd backend
+copy .env.example .env
+```
+
+`.env` dosyasını aç, `SIFRENIZ` yazan yere PostgreSQL kurulumunda belirlediğin şifreyi yaz.
+
+### Adım 4 — Python sanal ortamı kur
+
+```bash
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### Adım 5 — Frontend .env dosyasını oluştur
+
+```bash
+cd ..\frontend
+copy .env.example .env
+npm install
+```
+
+### Adım 6 — Çalıştır
+
+Ana klasördeki **`baslat.bat`** dosyasına çift tıkla. Tarayıcı otomatik açılır.
+
+- Frontend → http://localhost:5173
+- Backend → http://localhost:8000
+
+---
+
+### Sorun giderme
+
+**"PostgreSQL servisi bulunamadı"**
+→ Görev Yöneticisi → Servisler → `postgresql-x64-18` çalışıyor olmalı.
+
+**"Module not found" (backend)**
+→ `backend\venv\Scripts\activate` çalıştır, sonra `pip install -r requirements.txt`.
+
+**Harita görünmüyor**
+→ `frontend\.env` dosyasında `VITE_GOOGLE_MAPS_API_KEY` dolu mu kontrol et.
+
+---
+
 ## 👥 Ekip
 
 | İsim | Rol | Alan |
