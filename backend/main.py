@@ -12,6 +12,14 @@ from routes.recommendations import router as recommendations_router
 
 Base.metadata.create_all(bind=engine)
 
+from sqlalchemy import text
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE trips ADD COLUMN plan_data TEXT"))
+        conn.commit()
+except Exception:
+    pass
+
 app = FastAPI(title="TravelMind API", version="1.0.0")
 
 app.add_middleware(

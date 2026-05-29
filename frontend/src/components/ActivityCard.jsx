@@ -1,7 +1,7 @@
 function ActivityCard({ activity, selected, onToggle }) {
   return (
     <div className={`border rounded-xl p-4 transition-all cursor-pointer ${
-      selected ? 'border-sky-400 bg-sky-50' : 'border-gray-200 hover:border-sky-200'
+      selected ? 'border-[#96C8C8] bg-[#E8F7F6]' : 'border-gray-200 hover:border-[#B8E0DC]'
     }`}>
       <div className="flex justify-between items-start">
         <div className="flex-1">
@@ -16,8 +16,8 @@ function ActivityCard({ activity, selected, onToggle }) {
           onClick={() => onToggle(activity)}
           className={`ml-3 px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
             selected
-              ? 'bg-sky-500 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-sky-100'
+              ? 'bg-[#96C8C8] text-gray-900'
+              : 'bg-gray-100 text-gray-600 hover:bg-[#E8F7F6]'
           }`}
         >
           {selected ? 'Cikar' : 'Ekle'}
