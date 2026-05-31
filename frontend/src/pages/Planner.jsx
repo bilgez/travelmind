@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
-import { parseInput, getAllActivities } from '../api/index'
+import { planChat, parseInput, getAllActivities } from '../api/index'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -48,6 +48,32 @@ const VISIT_DURATIONS = {
   tarihi_yer: 90, plaj: 180, doga: 120,
   restoran: 75, gece_hayati: 120, alisveris: 90, eglence: 120,
 }
+
+// NLP parser kategorileri → DB kategorileri (backend ile senkronize)
+const NLP_TO_DB_CAT = {
+  historical: 'tarihi_yer', ruins: 'tarihi_yer', museum: 'tarihi_yer',
+  beach: 'plaj', beachclub: 'plaj',
+  nature: 'doga', waterfall: 'doga', cave: 'doga', park: 'doga', activity: 'doga',
+  restaurant: 'restoran', fine_dining: 'restoran',
+  nightlife: 'gece_hayati',
+  shopping: 'alisveris', mall: 'alisveris', market: 'alisveris',
+  themepark: 'eglence', family: 'eglence',
+}
+
+// Grup tipine göre tercih edilen kategoriler (backend GROUP_CATEGORY_MAP ile senkronize)
+const GROUP_CAT_MAP = {
+  family:  ['doga', 'tarihi_yer', 'plaj', 'eglence'],
+  couple:  ['restoran', 'tarihi_yer', 'doga', 'plaj'],
+  solo:    ['tarihi_yer', 'doga', 'alisveris'],
+  friends: ['gece_hayati', 'restoran', 'plaj', 'alisveris'],
+}
+
+// Gün içi zaman dilimi sıralaması (sabah → öğlen → akşam → gece)
+const TIME_SLOT_PRIORITY = {
+  tarihi_yer: 1, doga: 1, plaj: 2,
+  alisveris: 2, eglence: 2, restoran: 3, gece_hayati: 4,
+}
+
 
 const QUICK_PROMPTS = [
   '2 günlük tarihi tur, 1500 TL',
@@ -109,51 +135,102 @@ function categoryMatches(nlpCat, dbCat) {
   return false
 }
 
-function buildTravelPlan(activities, days, budget, categories) {
-  const numDays = days || 1  // Varsayılan 1 gün
+function buildTravelPlan(activities, days, budget, categories, groupType = 'solo', locations = [], sentimentVector = {}, timeSlots = {}) {
+  const numDays = days || 1
 
-  // Kategori filtresi
-  let catFiltered = categories.length === 0
-    ? [...activities]
-    : activities.filter(a => categories.some(c => categoryMatches(c, a.category)))
+  // 1. Sentiment filtresi — negatif skorlu NLP kategorilerini DB'ye çevir ve dışla
+  const negativeCats = new Set(
+    Object.entries(sentimentVector)
+      .filter(([, score]) => score < 0)
+      .map(([nlpCat]) => NLP_TO_DB_CAT[nlpCat])
+      .filter(Boolean)
+  )
 
-  // Bütçe filtresi: aktivite fiyatı günlük bütçeyi geçemesin
-  if (budget && catFiltered.length > 0) {
-    const perDayBudget = budget / numDays
-    const budgetFiltered = catFiltered.filter(a => a.price <= perDayBudget)
-    // Bütçe filtrelemesi sonuç veriyorsa kullan, yoksa esnelt
-    if (budgetFiltered.length >= numDays * 2) {
-      catFiltered = budgetFiltered
-    } else {
-      // Esnek filtre: toplam bütçenin 1.5 katına kadar izin ver
-      const relaxed = catFiltered.filter(a => a.price <= perDayBudget * 1.5)
-      if (relaxed.length >= numDays) catFiltered = relaxed
+  // 2. Locations — kullanıcının adını verdiği mekanları DB'den bul, plana zorla dahil et
+  const forcedActivities = locations
+    .map(loc => activities.find(a => a.name === loc.name))
+    .filter(Boolean)
+  const forcedIds = new Set(forcedActivities.map(a => a.id))
+
+  // 3. Kategori havuzu oluştur
+  const preferredCats = GROUP_CAT_MAP[groupType] || []
+  let pool
+  if (categories.length > 0) {
+    // Kullanıcı açıkça kategori belirttiyse önce onu dene
+    pool = activities.filter(a =>
+      categories.some(c => categoryMatches(c, a.category)) &&
+      !negativeCats.has(a.category) &&
+      !forcedIds.has(a.id)
+    )
+    // Sonuç yetersizse negatif olmayan tümünü aç
+    if (pool.length < numDays * 2) {
+      pool = activities.filter(a => !negativeCats.has(a.category) && !forcedIds.has(a.id))
+    }
+  } else {
+    // Kategori yok → grup tipine göre filtrele
+    pool = activities.filter(a =>
+      preferredCats.includes(a.category) &&
+      !negativeCats.has(a.category) &&
+      !forcedIds.has(a.id)
+    )
+    if (pool.length < numDays * 2) {
+      pool = activities.filter(a => !negativeCats.has(a.category) && !forcedIds.has(a.id))
     }
   }
 
-  // Rating'e göre sırala
-  let filtered = catFiltered.sort((a, b) => b.rating - a.rating)
-
-  // Eşleşen aktivite yoksa tüm aktiviteleri kullan (bütçeye uygun)
-  if (filtered.length === 0) {
-    filtered = [...activities].sort((a, b) => b.rating - a.rating)
-    if (budget) {
-      const perDayBudget = budget / numDays
-      const bf = filtered.filter(a => a.price <= perDayBudget)
-      if (bf.length >= numDays) filtered = bf
+  // 4. Bütçe filtresi
+  if (budget && pool.length > 0) {
+    const perDay = budget / numDays
+    const budgetPool = pool.filter(a => a.price <= perDay)
+    if (budgetPool.length >= numDays * 2) pool = budgetPool
+    else {
+      const relaxed = pool.filter(a => a.price <= perDay * 1.5)
+      if (relaxed.length >= numDays) pool = relaxed
     }
   }
+
+  // 5. Sıralama: rating + grup tipi boost (tercih edilen kategorilere +0.3 puan)
+  pool = [...pool].sort((a, b) => {
+    const scoreA = a.rating + (preferredCats.includes(a.category) ? 0.3 : 0)
+    const scoreB = b.rating + (preferredCats.includes(b.category) ? 0.3 : 0)
+    return scoreB - scoreA
+  })
+
+  // Fallback: hiç aktivite yoksa tüm listeyi kullan
+  if (pool.length === 0) {
+    pool = [...activities].filter(a => !forcedIds.has(a.id)).sort((a, b) => b.rating - a.rating)
+  }
+
+  // 6. Forced aktiviteleri günlere dağıt, kalan slotları pool'dan doldur
+  const forcedByDay = Array.from({ length: numDays }, () => [])
+  forcedActivities.forEach((a, i) => forcedByDay[i % numDays].push(a))
 
   const plan = []
+  let poolIdx = 0
   for (let d = 0; d < numDays; d++) {
-    const dayActivities = filtered.slice(d * 4, (d + 1) * 4)
+    const dayForced = forcedByDay[d]
+    const slotsLeft = Math.max(0, 4 - dayForced.length)
+    const dayRest = pool.slice(poolIdx, poolIdx + slotsLeft)
+    poolIdx += slotsLeft
+
+    // Gün içi sıralama: time_slot tercihi varsa uygula, yoksa koordinat bazlı optimize et
+    let dayActivities = [...dayForced, ...dayRest]
+    if (Object.keys(timeSlots).length > 0) {
+      // Sabah → tarihi/doğa, öğlen → plaj/alışveriş, akşam → restoran, gece → gece hayatı
+      dayActivities = dayActivities.sort((a, b) =>
+        (TIME_SLOT_PRIORITY[a.category] || 2) - (TIME_SLOT_PRIORITY[b.category] || 2)
+      )
+    } else {
+      dayActivities = nearestNeighborSort(dayActivities)
+    }
+
     if (dayActivities.length > 0) {
       plan.push({ day: d + 1, theme: getDayTheme(dayActivities), activities: dayActivities })
     }
   }
 
-  // Eksik günleri tüm aktivitelerden tamamla
-  if (plan.length < numDays && filtered.length > 0) {
+  // Eksik günleri tamamla
+  if (plan.length < numDays) {
     const allSorted = [...activities].sort((a, b) => b.rating - a.rating)
     for (let d = plan.length; d < numDays; d++) {
       const dayActivities = allSorted.slice(d * 4, (d + 1) * 4)
@@ -460,7 +537,11 @@ export default function Planner() {
   }, [mapInstance, isLoaded, plan])
 
   // Biriken bağlam: plan oluştuktan sonra bütçe ve gün hatırlanır
-  const sessionContext = useRef({ budget: null, days: null, categories: [] })
+  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).slice(2)}`)
+  const sessionContext = useRef({
+    budget: null, days: null, categories: [],
+    groupType: 'solo', locations: [], sentimentVector: {}, timeSlots: {}
+  })
 
   const addAiMessage = (text) => setMessages(prev => [...prev, {
     role: 'ai', text,
@@ -478,69 +559,79 @@ export default function Planner() {
     setLoading(true)
 
     try {
-      const [parseRes, activitiesRes] = await Promise.all([
-        parseInput({ user_id: parseInt(localStorage.getItem('user_id')) || 1, text: userText }),
-        getAllActivities()
-      ])
-      const parsed = parseRes.data.parsed_plan || {}
+      const activitiesRes = await getAllActivities()
       const allActivities = activitiesRes.data.activities || []
-      const t = userText.toLowerCase()
-
-      // Bağlamı güncelle (belirtilmişse)
-      if (parsed.budget) sessionContext.current.budget = parsed.budget
-      if (parsed.duration_days) sessionContext.current.days = parsed.duration_days
-      if (parsed.categories?.length) {
-        const merged = [...new Set([...sessionContext.current.categories, ...parsed.categories])]
-        sessionContext.current.categories = merged
-      }
-
       const ctx = sessionContext.current
 
-      // ── Mevcut plan varsa: Refine ──
+      const buildWithCtx = (pool, numDays) =>
+        buildTravelPlan(pool, numDays, ctx.budget, ctx.categories,
+          ctx.groupType, ctx.locations, ctx.sentimentVector, ctx.timeSlots)
+
+      // ── PLAN VAR: Refine modu — parseInput ile hızlı tek tur ──
       if (plan) {
+        const parseRes = await parseInput({ user_id: parseInt(localStorage.getItem('user_id')) || 1, text: userText })
+        const parsed = parseRes.data.parsed_plan || {}
+        const t = userText.toLowerCase()
         const existingIds = new Set(plan.days.flatMap(d => d.activities).map(a => a.id))
 
-        // Yeni gün sayısı belirtildiyse planı yeniden oluştur
+        if (parsed.budget) ctx.budget = parsed.budget
+        if (parsed.duration_days) ctx.days = parsed.duration_days
+        if (parsed.group_type && parsed.group_type !== 'solo') ctx.groupType = parsed.group_type
+        if (parsed.categories?.length) ctx.categories = [...new Set([...ctx.categories, ...parsed.categories])]
+        if (parsed.locations?.length) {
+          ctx.locations = [...ctx.locations, ...parsed.locations]
+            .filter((l, i, arr) => arr.findIndex(x => x.name === l.name) === i)
+        }
+        // Sentiment güncelle — "plaj istemiyorum" gibi ifadeler için kritik
+        const sv = parsed.parsed?.sentiment_vector || {}
+        Object.entries(sv).forEach(([cat, score]) => { if (score !== 0) ctx.sentimentVector[cat] = score })
+        const hasSentimentChange = Object.values(sv).some(s => s !== 0)
+
+        // Gün sayısı değişti
         if (parsed.duration_days && parsed.duration_days !== plan.duration) {
-          const newDays = buildTravelPlan(allActivities, parsed.duration_days, ctx.budget, ctx.categories)
+          const newDays = buildWithCtx(allActivities, parsed.duration_days)
           const allActs = newDays.flatMap(d => d.activities)
-          const title = getTripTitle(allActs, newDays.length)
           const totalCost = allActs.reduce((s, a) => s + (a.price || 0), 0)
-          setPlan({ days: newDays, budget: ctx.budget, duration: newDays.length, title, totalCost })
+          setPlan({ days: newDays, budget: ctx.budget, duration: newDays.length, title: getTripTitle(allActs, newDays.length), totalCost })
           setActiveDay(newDays[0]?.day || null)
           addAiMessage(`Plan ${parsed.duration_days} güne güncellendi! ${allActs.length} mekan, tahmini ${totalCost} TL.`)
-          setLoading(false)
-          return
+          setLoading(false); return
         }
-
-        // "Daha ucuz" → mevcut aktiviteleri daha ucuzu ile değiştir
+        // Bütçe güncelleme
         if (t.includes('ucuz') || t.includes('ekonomik') || t.includes('bütçe')) {
-          const budget = parsed.budget || ctx.budget
-          if (budget) {
-            sessionContext.current.budget = budget
-            const cheaper = allActivities
-              .filter(a => !existingIds.has(a.id) && a.price <= budget / (plan.days.length * 4))
-              .sort((a, b) => b.rating - a.rating)
-            const newDays = buildTravelPlan(allActivities, plan.days.length, budget, ctx.categories)
+          if (parsed.budget || ctx.budget) {
+            const newDays = buildWithCtx(allActivities, plan.days.length)
             const allActs = newDays.flatMap(d => d.activities)
             const totalCost = allActs.reduce((s, a) => s + (a.price || 0), 0)
-            setPlan(prev => ({ ...prev, days: newDays, budget, totalCost }))
-            addAiMessage(`Bütçeye uygun ${cheaper.length > 0 ? 'daha uygun fiyatlı' : ''} mekanlarla plan güncellendi. Yeni toplam: ${totalCost} TL.`)
+            setPlan(prev => ({ ...prev, days: newDays, budget: ctx.budget, totalCost }))
+            addAiMessage(`Bütçeye uygun mekanlarla plan güncellendi. Yeni toplam: ${totalCost} TL.`)
           } else {
             addAiMessage('Bütçeni belirtir misin? Örnek: "1500 TL bütçe ile yeniden planla"')
           }
-          setLoading(false)
-          return
+          setLoading(false); return
         }
-
-        // Kategori ekleme: "ekle", "öner" + kategori kelimesi
+        // Belirli mekan ekleme
+        if (parsed.locations?.length) {
+          const toAdd = parsed.locations.map(l => allActivities.find(a => a.name === l.name)).filter(a => a && !existingIds.has(a.id))
+          if (toAdd.length > 0) {
+            setPlan(prev => {
+              const updatedDays = prev.days.map((d, i) => {
+                if (i !== prev.days.length - 1) return d
+                const merged = nearestNeighborSort([...d.activities, ...toAdd])
+                return { ...d, activities: merged, theme: getDayTheme(merged) }
+              })
+              const allActs = updatedDays.flatMap(d => d.activities)
+              return { ...prev, days: updatedDays, totalCost: allActs.reduce((s, a) => s + (a.price || 0), 0) }
+            })
+            addAiMessage(`${toAdd.map(a => a.name).join(', ')} rotana eklendi!`)
+          } else {
+            addAiMessage('Belirttiğin mekan zaten rotanda ya da bulunamadı.')
+          }
+          setLoading(false); return
+        }
+        // Kategori ekleme
         if ((t.includes('ekle') || t.includes('öner') || t.includes('istiyorum')) && parsed.categories?.length) {
-          const newCats = parsed.categories
-          const toAdd = allActivities
-            .filter(a => newCats.some(c => categoryMatches(c, a.category)) && !existingIds.has(a.id))
-            .sort((a, b) => b.rating - a.rating)
-            .slice(0, 2)
-
+          const toAdd = allActivities.filter(a => parsed.categories.some(c => categoryMatches(c, a.category)) && !existingIds.has(a.id)).sort((a, b) => b.rating - a.rating).slice(0, 2)
           if (toAdd.length > 0) {
             setPlan(prev => {
               const updatedDays = prev.days.map((d, i) => {
@@ -553,39 +644,83 @@ export default function Planner() {
             })
             addAiMessage(`${toAdd.map(a => a.name).join(' ve ')} planına eklendi!`)
           } else {
-            addAiMessage('Bu kategoride henüz eklenecek yeni mekan bulamadım. Farklı bir kategori dene!')
+            addAiMessage('Bu kategoride eklenecek yeni mekan bulamadım. Farklı bir kategori dene!')
           }
-          setLoading(false)
-          return
+          setLoading(false); return
         }
-
-        // Genel güncelleme: yeni kategorilerle mevcut planı zenginleştir
-        if (parsed.categories?.length > 0 || parsed.budget) {
-          const newDays = buildTravelPlan(allActivities, ctx.days || plan.days.length, ctx.budget, ctx.categories)
+        // Genel güncelleme (kategoriler, bütçe, grup tipi veya negatif sentiment değişti)
+        if (parsed.categories?.length > 0 || parsed.budget || parsed.group_type || hasSentimentChange) {
+          const newDays = buildWithCtx(allActivities, ctx.days || plan.days.length)
           const allActs = newDays.flatMap(d => d.activities)
-          const title = getTripTitle(allActs, newDays.length)
           const totalCost = allActs.reduce((s, a) => s + (a.price || 0), 0)
-          setPlan({ days: newDays, budget: ctx.budget, duration: newDays.length, title, totalCost })
-          addAiMessage(`Plan güncellendi! ${allActs.length} mekan, tahmini ${totalCost} TL.`)
-          setLoading(false)
-          return
+          // Negatif sentiment varsa hangi kategorilerin çıkarıldığını söyle
+          const excluded = Object.entries(ctx.sentimentVector)
+            .filter(([, s]) => s < 0)
+            .map(([c]) => ({ beach: 'plaj', nightlife: 'gece hayatı', restaurant: 'restoran', historical: 'tarihi', nature: 'doğa', shopping: 'alışveriş' }[c]))
+            .filter(Boolean)
+          const exNote = excluded.length ? ` (${excluded.join(', ')} dışarıda bırakıldı)` : ''
+          setPlan({ days: newDays, budget: ctx.budget, duration: newDays.length, title: getTripTitle(allActs, newDays.length), totalCost })
+          addAiMessage(`Plan güncellendi${exNote}! ${allActs.length} mekan, tahmini ${totalCost} TL.`)
+          setLoading(false); return
         }
-
-        // Tanımlanamayan mesaj
         addAiMessage('Planı nasıl değiştirmemi istersin? "Tarihi mekan ekle", "daha ucuz alternatifler" veya "3 günlük yap" gibi söyleyebilirsin.')
-        setLoading(false)
-        return
+        setLoading(false); return
       }
 
-      // ── İlk plan oluşturma ──
-      const newDays = buildTravelPlan(allActivities, ctx.days, ctx.budget, ctx.categories)
-      const allActs = newDays.flatMap(d => d.activities)
-      const title = getTripTitle(allActs, newDays.length)
-      const totalCost = allActs.reduce((s, a) => s + (a.price || 0), 0)
-      setPlan({ days: newDays, budget: ctx.budget, duration: newDays.length, title, totalCost })
-      setActiveDay(newDays[0]?.day || null)
-      const budgetNote = ctx.budget ? ` Bütçen: ${ctx.budget} TL, tahmini harcama: ${totalCost} TL.` : ` Tahmini maliyet: ${totalCost} TL.`
-      addAiMessage(`${title} hazırlandı! ${newDays.length} günlük programında ${allActs.length} mekan var.${budgetNote} Planı özelleştirmek için yeni mesaj yaz.`)
+      // ── PLAN YOK: ChatEngine ile çok turlu konuşma ──
+      const chatRes = await planChat({ session_id: sessionId, text: userText })
+      const chat = chatRes.data
+
+      // Selamlama veya soru — sadece yanıtı göster
+      if (chat.state === 'greeting' || chat.state === 'need_budget') {
+        addAiMessage(chat.reply)
+        setLoading(false); return
+      }
+
+      // Plan hazır — backend'in NLP pipeline'ından gelen planı kullan
+      if (chat.state === 'ready') {
+        const collected = chat.session_summary?.collected || {}
+        const backendPlan = chat.plan  // plan_builder'dan gelen tam plan
+
+        // sessionContext güncelle (refine için)
+        ctx.budget = collected.budget || ctx.budget
+        ctx.days = collected.duration_days || ctx.days
+        if (collected.group_type) ctx.groupType = collected.group_type
+        if (collected.categories?.length) ctx.categories = collected.categories
+        if (collected.locations?.length) ctx.locations = collected.locations
+        if (collected.sentiment_vector) ctx.sentimentVector = collected.sentiment_vector
+        if (collected.time_slots) ctx.timeSlots = collected.time_slots
+
+        if (backendPlan && backendPlan.days?.length > 0) {
+          // Backend planını doğrudan kullan (Dijkstra optimize edilmiş)
+          setPlan({
+            days:      backendPlan.days,
+            budget:    backendPlan.budget,
+            duration:  backendPlan.duration,
+            title:     backendPlan.title,
+            totalCost: backendPlan.totalCost,
+          })
+          setActiveDay(backendPlan.days[0]?.day || null)
+          const budgetNote = backendPlan.budget
+            ? ` Tahmini harcama: ${backendPlan.totalCost} TL.`
+            : ''
+          addAiMessage(chat.reply + budgetNote + ' Planı özelleştirmek için mesaj yaz.')
+        } else {
+          // Backend plan hatası → fallback: frontend buildTravelPlan
+          const recs = chat.recommendations || []
+          const recIds = new Set(recs.map(r => r.id))
+          const enriched = recs.map(rec => ({ ...(allActivities.find(a => a.id === rec.id) || {}), match_score: rec.match_score })).filter(r => r.id)
+          const remaining = allActivities.filter(a => !recIds.has(a.id)).sort((a, b) => b.rating - a.rating)
+          const numDays = ctx.days || 1
+          const newDays = buildWithCtx([...enriched, ...remaining], numDays)
+          const allActs = newDays.flatMap(d => d.activities)
+          const totalCost = allActs.reduce((s, a) => s + (a.price || 0), 0)
+          setPlan({ days: newDays, budget: ctx.budget, duration: newDays.length, title: getTripTitle(allActs, newDays.length), totalCost })
+          setActiveDay(newDays[0]?.day || null)
+          addAiMessage(chat.reply + ` Tahmini harcama: ${totalCost} TL. Planı özelleştirmek için mesaj yaz.`)
+        }
+      }
+
     } catch (err) {
       console.error('Planner API error:', err)
       addAiMessage('Üzgünüm, bir hata oluştu. Lütfen tekrar dene.')
@@ -953,13 +1088,13 @@ export default function Planner() {
                 </p>
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   {[
-                    { key: 'tarihi_yer',  label: 'Tarihi Yerler',   sub: 'Antik kentler, müzeler, yapılar', prompt: 'Tarihi mekanlar ekle',       emoji: '🏛️' },
-                    { key: 'plaj',        label: 'Plajlar',         sub: 'Kıyılar, beach club, su sporları', prompt: 'Plaj aktiviteleri öner',    emoji: '🏖️' },
-                    { key: 'doga',        label: 'Doğa',            sub: 'Şelaleler, kanyonlar, mağaralar',  prompt: 'Doğa aktiviteleri ekle',    emoji: '🌿' },
-                    { key: 'restoran',    label: 'Yeme & İçme',     sub: 'Restoranlar, kahvaltı, kafeler',   prompt: 'Restoran önerileri ekle',   emoji: '🍽️' },
-                    { key: 'gece_hayati', label: 'Gece Hayatı',     sub: 'Barlar, kulüpler, gece turları',   prompt: 'Gece hayatı mekanları ekle', emoji: '🌙' },
-                    { key: 'alisveris',   label: 'Alışveriş',       sub: 'Çarşılar, AVM, butikler',          prompt: 'Alışveriş mekanları ekle',  emoji: '🛍️' },
-                    { key: 'eglence',     label: 'Eğlence',         sub: 'Tema parkları, rafting, zipline',  prompt: 'Eğlence aktiviteleri ekle', emoji: '🎢' },
+                    { key: 'tarihi_yer',  label: 'Tarihi Yerler',  sub: 'Antik kentler, müzeler, yapılar',  prompt: 'Tarihi yerler ve antik kentler görmek istiyorum',     emoji: '🏛️' },
+                    { key: 'plaj',        label: 'Plajlar',        sub: 'Kıyılar, beach club, su sporları', prompt: 'Plaj ve deniz aktiviteleri istiyorum',                emoji: '🏖️' },
+                    { key: 'doga',        label: 'Doğa',           sub: 'Şelaleler, kanyonlar, mağaralar',  prompt: 'Doğa yürüyüşü ve şelale gibi doğa aktiviteleri',     emoji: '🌿' },
+                    { key: 'restoran',    label: 'Yeme & İçme',    sub: 'Restoranlar, kahvaltı, kafeler',   prompt: 'Güzel restoranlar ve kahvaltı mekanları istiyorum',   emoji: '🍽️' },
+                    { key: 'gece_hayati', label: 'Gece Hayatı',    sub: 'Barlar, kulüpler, gece turları',   prompt: 'Barlar ve kulüpler istiyorum, gece eğlencesi',        emoji: '🌙' },
+                    { key: 'alisveris',   label: 'Alışveriş',      sub: 'Çarşılar, AVM, butikler',          prompt: 'Alışveriş ve çarşı gezmek istiyorum',                emoji: '🛍️' },
+                    { key: 'eglence',     label: 'Eğlence',        sub: 'Tema parkları, rafting, zipline',  prompt: 'Akvaryum, tema parkı ve rafting gibi aktiviteler',   emoji: '🎢' },
                   ].map(cat => (
                     <button
                       key={cat.key}

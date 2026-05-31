@@ -511,38 +511,51 @@ export default function RoutePage() {
                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
                   <AnimatePresence>
                     {visibleActivities.map((activity, index) => (
-                      <motion.div
-                        key={activity.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.04 }}
-                        onClick={() => setFocused(activity)}
-                        className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border border-gray-100 bg-white hover:border-[#96C8C8]/50 hover:bg-[#E8F7F6]/40 group"
-                      >
-                        <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
-                          <img
-                            src={getPlaceImage(activity)}
-                            alt={activity.name}
-                            className="w-full h-full object-cover"
-                            onError={e => { e.target.src = 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=100&q=80' }}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 truncate">{activity.name}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{CATEGORY_LABELS[activity.category] || activity.category}</p>
-                        </div>
-                        <div className="flex flex-col items-end flex-shrink-0 gap-0.5">
-                          <span className="text-xs font-semibold text-[#4A9898]">
-                            {activity.price === 0 ? 'Ücretsiz' : `${activity.price} ₺`}
-                          </span>
-                          {MUZEKART_VENUES.has(activity.name) && (
-                            <span className="text-[10px] italic text-emerald-600 whitespace-nowrap">Müzekart</span>
-                          )}
-                        </div>
-                        <svg className="w-4 h-4 text-gray-300 group-hover:text-[#96C8C8] transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </motion.div>
+                      <div key={activity.id}>
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.04 }}
+                          onClick={() => setFocused(activity)}
+                          className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border border-gray-100 bg-white hover:border-[#96C8C8]/50 hover:bg-[#E8F7F6]/40 group"
+                        >
+                          <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
+                            <img
+                              src={getPlaceImage(activity)}
+                              alt={activity.name}
+                              className="w-full h-full object-cover"
+                              onError={e => { e.target.src = 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=100&q=80' }}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{activity.name}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{CATEGORY_LABELS[activity.category] || activity.category}</p>
+                          </div>
+                          <div className="flex flex-col items-end flex-shrink-0 gap-0.5">
+                            <span className="text-xs font-semibold text-[#4A9898]">
+                              {activity.price === 0 ? 'Ücretsiz' : `${activity.price} ₺`}
+                            </span>
+                            {MUZEKART_VENUES.has(activity.name) && (
+                              <span className="text-[10px] italic text-emerald-600 whitespace-nowrap">Müzekart</span>
+                            )}
+                          </div>
+                          <svg className="w-4 h-4 text-gray-300 group-hover:text-[#96C8C8] transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </motion.div>
+                        {/* Dijkstra seyahat süresi — sonraki aktiviteye geçiş */}
+                        {index < visibleActivities.length - 1 && activity.drive_min > 0 && (
+                          <div className="flex items-center gap-2 px-4 py-1 my-0.5">
+                            <div className="w-px h-4 bg-gray-100 ml-5" />
+                            <span className="text-[10px] text-gray-300 flex items-center gap-2">
+                              <span>🚗 {activity.drive_min} dk</span>
+                              <span>🚶 {activity.walk_min} dk</span>
+                              <span className="text-gray-200">·</span>
+                              <span>{activity.distance_km?.toFixed(1)} km</span>
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </AnimatePresence>
                 </div>

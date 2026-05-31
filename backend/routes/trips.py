@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 import json
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database import get_db
 from models.trip import Trip
 from models.user import User
@@ -11,12 +13,22 @@ from services.nlp import parse_input
 from services.optimizer import optimize_route
 from services.budget import calculate_budget
 from services.auth_deps import get_current_user
+from services.chat_engine import ChatEngine
+from services.plan_builder import build_plan
 
 router = APIRouter(prefix="/api", tags=["trips"])
+
+# In-memory ChatEngine instances (session_id → ChatEngine)
+_engines: dict[str, ChatEngine] = {}
 
 class ParseInputRequest(BaseModel):
     user_id: int
     text: str
+
+class PlanChatRequest(BaseModel):
+    session_id: str
+    text: str
+    reset: bool = False
 
 class OptimizeRouteRequest(BaseModel):
     trip_id: int
@@ -45,6 +57,36 @@ def parse_user_input(request: ParseInputRequest, db: Session = Depends(get_db)):
         "parsed_plan": parsed,
         "message": "Plan basariyla olusturuldu!"
     }
+
+@router.post("/plan-chat")
+def plan_chat(request: PlanChatRequest):
+    """
+    ChatEngine tabanlı çok turlu sohbet endpoint'i.
+    - Selamlama → karşılama mesajı
+    - Bütçe eksikse → bütçeyi sor
+    - Yeterli bilgi varsa → hybrid_recommend ile öneri üret
+    """
+    session_id = request.session_id
+
+    if request.reset or session_id not in _engines:
+        _engines[session_id] = ChatEngine()
+
+    engine = _engines[session_id]
+    result = engine.handle_message(request.text)
+
+    # Plan hazırsa: engine.session'dan direkt plan inşa et
+    if result.get("state") == "ready":
+        try:
+            collected = engine.session.collected
+            normalized_prefs = engine.session.to_normalized_prefs()
+            plan = build_plan(collected, normalized_prefs)
+            result["plan"] = plan
+        except Exception as e:
+            result["plan_error"] = str(e)
+        finally:
+            _engines.pop(session_id, None)
+
+    return result
 
 class SavePlanRequest(BaseModel):
     trip_id: Optional[int] = None

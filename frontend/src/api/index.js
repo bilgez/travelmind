@@ -13,6 +13,7 @@ api.interceptors.request.use(config => {
 export const register = (data) => api.post('/auth/register', data)
 export const login = (data) => api.post('/auth/login', data)
 export const parseInput = (data) => api.post('/api/parse-input', data)
+export const planChat = (data) => api.post('/api/plan-chat', data)
 export const getTrips = (userId) => api.get(`/api/trips/${userId}`)
 export const getRecommendations = (userId, category) =>
   api.get(`/api/recommendations?user_id=${userId}&category=${category}`)

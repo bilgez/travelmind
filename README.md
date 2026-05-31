@@ -77,6 +77,52 @@ Ana klasördeki **`baslat.bat`** dosyasına çift tıkla. Tarayıcı otomatik a�
 
 ---
 
+## 🤖 NLP Model Değerlendirme Sonuçları
+
+`backend/nlp/evaluator.py` ile 5 mock kullanıcı üzerinde ölçülen metrikler:
+
+| Metrik | Değer |
+|--------|-------|
+| **Avg Precision** | 0.24 |
+| **Avg Recall** | 0.3833 |
+| **Avg F1-Score** | 0.2952 |
+| **Avg MAPE** | %18.58 ✅ (< %20 → İyi) |
+
+| Kullanıcı | Precision | Recall | F1 | MAPE |
+|-----------|-----------|--------|----|------|
+| User 1 (solo, tarihi) | 0.60 | 1.00 | 0.75 | %19.73 |
+| User 2 (friends, gece) | 0.00 | 0.00 | 0.00 | %15.91 |
+| User 3 (couple, karma) | 0.20 | 0.25 | 0.22 | %18.82 |
+| User 4 (solo, tarihi+gece) | 0.40 | 0.67 | 0.50 | %19.73 |
+| User 5 (friends, doğa+gece) | 0.00 | 0.00 | 0.00 | %18.70 |
+
+> `cd backend && python -c "from nlp.evaluator import evaluate_model; import json; r=evaluate_model(); print(json.dumps(r['summary'], indent=2))"`
+
+---
+
+## 🏗️ NLP Pipeline Mimarisi
+
+```
+Kullanıcı mesajı (Türkçe)
+    ↓
+nlp/parser.py → parse_user_input() + ConversationSession
+  • Bütçe, gün, grup tipi, sentiment, lokasyon çıkarır
+  • Çok turlu sohbet — eksik bilgiyi sorar
+    ↓
+nlp/recommender.py → hybrid_recommend()
+  • Cosine similarity (sklearn) ile aktivite skoru
+  • Logaritmik bütçe cezası + XAI açıklamaları
+  • Çeşitlilik boost (kategori + bölge bazlı)
+    ↓
+services/plan_builder.py → build_plan()
+  • Günlere dağıtım (4 aktivite/gün)
+  • nlp/optimizer.py → Dijkstra + yürüme/araç süresi
+    ↓
+Frontend → Sadece görüntüleme
+```
+
+---
+
 ## 👥 Ekip
 
 | İsim | Rol | Alan |
