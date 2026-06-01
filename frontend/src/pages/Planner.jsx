@@ -410,6 +410,15 @@ export default function Planner() {
         Object.entries(sv).forEach(([cat, score]) => { if (score !== 0) ctx.sentimentVector[cat] = score })
         const hasSentimentChange = Object.values(sv).some(s => s !== 0)
 
+        // Müzekart değişikliği tespiti
+        const muzekartYes = ['müzekart var', 'müzekartım var', 'müzekart aldım', 'müzekartım', 'müzekart aldı']
+        const muzekartNo  = ['müzekart yok', 'müzekartım yok', 'müzekart almadım', 'müzekartsız']
+        const hasMuzekartChange =
+          muzekartYes.some(k => t.includes(k)) ? 'yes' :
+          muzekartNo.some(k => t.includes(k))  ? 'no'  : null
+        if (hasMuzekartChange === 'yes') { ctx.has_muzekart = true;  setHasMuzekart(true) }
+        if (hasMuzekartChange === 'no')  { ctx.has_muzekart = false; setHasMuzekart(false) }
+
         const existingIds = plan.days.flatMap(d => d.activities).map(a => a.id)
         const isAddIntent = t.includes('ekle') || t.includes('öner') || t.includes('istiyorum') || t.includes('daha fazla')
 
@@ -456,6 +465,26 @@ export default function Planner() {
           } else {
             addAiMessage('Plan güncellenirken bir sorun oluştu.')
           }
+          setLoading(false); return
+        }
+
+        // ── MÜZEKART: aktiviteler aynı kalır, sadece fiyatlar güncellenir ──
+        if (hasMuzekartChange !== null) {
+          const hasMuzekart = ctx.has_muzekart
+          const updatedDays = plan.days.map(d => ({
+            ...d,
+            activities: d.activities.map(a => ({
+              ...a,
+              price: (hasMuzekart && a.muzekart) ? 0 : (a.original_price ?? a.price),
+            })),
+            day_cost: d.activities.reduce((s, a) =>
+              s + ((hasMuzekart && a.muzekart) ? 0 : (a.original_price ?? a.price)), 0),
+          }))
+          const totalCost = updatedDays.reduce((s, d) => s + d.day_cost, 0)
+          setPlan(prev => ({ ...prev, days: updatedDays, totalCost }))
+          addAiMessage(hasMuzekart
+            ? `Müzekart eklendi! Müzekart kabul eden mekanlar ücretsiz. Yeni toplam: ${totalCost} TL.`
+            : `Müzekart kaldırıldı. Yeni toplam: ${totalCost} TL.`)
           setLoading(false); return
         }
 
@@ -507,6 +536,7 @@ export default function Planner() {
         ctx.sentimentVector = collected.sentiment_vector || ctx.sentimentVector
         ctx.timeSlots     = collected.time_slots || ctx.timeSlots
         ctx.has_muzekart  = collected.has_muzekart ?? ctx.has_muzekart
+        setHasMuzekart(ctx.has_muzekart)
         ctx.age_groups    = collected.age_groups || ctx.age_groups
         ctx.is_family_trip = collected.is_family_trip ?? ctx.is_family_trip
 
@@ -526,6 +556,7 @@ export default function Planner() {
     setLoading(false)
   }
 
+  const [hasMuzekart, setHasMuzekart] = useState(false)
   const [savedToast, setSavedToast] = useState(false)
   const [loginBanner, setLoginBanner] = useState(false)
 
@@ -952,7 +983,17 @@ export default function Planner() {
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <span className="text-sm text-gray-600">{plan.totalCost} TL tahmini</span>
+                      {(() => {
+                        const origTotal = plan.days.flatMap(d => d.activities).reduce((s, a) => s + (a.original_price || 0), 0)
+                        const muzekartSaving = hasMuzekart && origTotal > 0 && plan.totalCost < origTotal
+                        return muzekartSaving
+                          ? <span className="text-sm text-gray-600">
+                              <span className="font-medium">{plan.totalCost} TL</span>
+                              {' '}<span style={{textDecoration:'line-through',color:'#9ca3af'}}>{origTotal} TL</span>
+                              {' '}<span style={{color:'#7DBCBC',fontSize:'11px'}}>müzekartla</span>
+                            </span>
+                          : <span className="text-sm text-gray-600">{plan.totalCost} TL tahmini</span>
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -1070,7 +1111,19 @@ export default function Planner() {
               >
                 <div>
                   <p className="text-xs text-gray-400 mb-1">Toplam Tahmini Maliyet</p>
-                  <p className="text-2xl font-bold">{plan.totalCost} TL</p>
+                  {(() => {
+                    const origTotal = plan.days.flatMap(d => d.activities).reduce((s, a) => s + (a.original_price || 0), 0)
+                    const muzekartSaving = hasMuzekart && origTotal > 0 && plan.totalCost < origTotal
+                    return muzekartSaving
+                      ? <div>
+                          <p className="text-2xl font-bold">{plan.totalCost} TL</p>
+                          <p className="text-xs mt-0.5" style={{color:'#9ca3af'}}>
+                            <span style={{textDecoration:'line-through'}}>{origTotal} TL</span>
+                            {' '}<span style={{color:'#7DBCBC'}}>müzekartla indirim uygulandı</span>
+                          </p>
+                        </div>
+                      : <p className="text-2xl font-bold">{plan.totalCost} TL</p>
+                  })()}
                   <p className="text-xs text-gray-500 mt-0.5">{plan.days.length} gün · {totalPlaces} mekan</p>
                 </div>
                 <button

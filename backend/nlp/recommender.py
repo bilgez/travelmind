@@ -361,9 +361,10 @@ def get_recommendations(
     if family_boost:
         iv["family"] = max(iv.get("family", 0.0), 1.0)
 
-    # 🚨 KRİTİK FİLTRE: Sadece kullanıcının açıkça pozitif (>0) veya 1 yaptığı kategorileri kabul et.
-    # Normalizer'dan gelen otomatik yan kategorileri (0.5 olanları) veya hiç geçmeyen 0'ları tamamen eliyoruz.
-    allowed_categories = {cat for cat, val in iv.items() if val >= 0.7}
+    # Pozitif değere sahip kategorilere izin ver (grup boost 0.5 dahil), sıfır ve negatifler elenir.
+    # Hiç kategori yoksa tüm kategoriler açık bırakılır.
+    positive_cats = {cat for cat, val in iv.items() if val > 0}
+    allowed_categories = positive_cats if positive_cats else set(ALL_CATEGORIES)
     negative_cats = {cat for cat, val in iv.items() if val < 0}
 
     user_vec = user_to_vector(iv, budget_score)

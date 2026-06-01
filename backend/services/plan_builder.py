@@ -106,6 +106,9 @@ def _calc_start_times(activities: list) -> list:
     times = []
     current = 9 * 60
     for act in activities:
+        if current >= 21 * 60:
+            times.append("")
+            continue
         h, m = divmod(current, 60)
         times.append(f"{h:02d}:{m:02d}")
         dur = VISIT_DURATIONS.get(act.get("category", ""), 90)
@@ -434,6 +437,7 @@ def add_to_plan(current_plan: dict, db_category: str, existing_ids: list,
 
     last_day["activities"] = merged
     last_day["day_cost"] = sum(a["price"] for a in merged)
+    last_day["theme"] = DAY_THEMES.get(_dominant_category(merged), "Antalya Turu")
     days[-1] = last_day
 
     total_cost = sum(d["day_cost"] for d in days)
