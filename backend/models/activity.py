@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean
 from sqlalchemy.sql import func
 from database import Base
 
@@ -15,4 +15,5 @@ class Activity(Base):
     rating = Column(Float, default=4.0)
     city = Column(String, default="Antalya")
     image_url = Column(String, nullable=True)
+    muzekart = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

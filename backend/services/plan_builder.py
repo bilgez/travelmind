@@ -13,7 +13,6 @@ Akış:
 
 import os
 import sys
-import json
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import text
@@ -21,11 +20,6 @@ from database import engine
 
 from nlp.recommender import hybrid_recommend, get_recommendations
 from nlp.optimizer import optimize_route
-
-# Müzekart kabul eden mekan isimleri (JSON'dan, DB'de bu kolon yok)
-_JSON_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "antalya_activities.json")
-with open(_JSON_PATH, encoding="utf-8") as _f:
-    _MUZEKART_NAMES: set = {a["name"] for a in json.load(_f) if a.get("muzekart")}
 
 # ──────────────────────────────────────────
 # KATEGORİ DÖNÜŞÜM HARİTALARI
@@ -80,7 +74,7 @@ def _get_db_activities_by_ids(ids: list) -> dict:
 
 def _effective_price(db_act: dict, has_muzekart: bool) -> float:
     """Müzekart varsa ve mekan müzekart kabul ediyorsa 0, yoksa DB fiyatı döner."""
-    if has_muzekart and db_act.get("name") in _MUZEKART_NAMES:
+    if has_muzekart and db_act.get("muzekart"):
         return 0
     return db_act.get("price") or 0
 
@@ -199,7 +193,7 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
                     "category":       db_act["category"],
                     "price":          _effective_price(db_act, has_muzekart),
                     "original_price": db_act.get("price") or 0,
-                    "muzekart":       db_act.get("name") in _MUZEKART_NAMES,
+                    "muzekart":       bool(db_act.get("muzekart")),
                     "rating":         db_act["rating"] or 0,
                     "latitude":       db_act["latitude"],
                     "longitude":      db_act["longitude"],
@@ -262,7 +256,7 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
             "category":       db_act["category"],
             "price":          _effective_price(db_act, has_muzekart),
             "original_price": db_act.get("price") or 0,
-            "muzekart":       db_act.get("name") in _MUZEKART_NAMES,
+            "muzekart":       bool(db_act.get("muzekart")),
             "rating":         db_act["rating"] or rec.get("popularity", 0),
             "latitude":       db_act["latitude"],
             "longitude":      db_act["longitude"],
@@ -290,7 +284,7 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
                 "category":       db_act["category"],
                 "price":          eff,
                 "original_price": db_act.get("price") or 0,
-                "muzekart":       db_act.get("name") in _MUZEKART_NAMES,
+                "muzekart":       bool(db_act.get("muzekart")),
                 "rating":         db_act["rating"] or 0,
                 "latitude":       db_act["latitude"],
                 "longitude":      db_act["longitude"],
@@ -370,3 +364,78 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
         "has_muzekart": has_muzekart,
         "days":        days,
     }
+
+
+def add_to_plan(current_plan: dict, db_category: str, existing_ids: list,
+                count: int, has_muzekart: bool, budget_per_activity: float) -> dict:
+    """
+    Mevcut plana yeni aktiviteler ekler, eklenen günü Dijkstra ile yeniden optimize eder.
+    """
+    with engine.connect() as conn:
+        params: dict = {"cat": db_category, "exc": existing_ids or [-1]}
+        sql = "SELECT * FROM activities WHERE category = :cat AND id != ALL(:exc)"
+        if budget_per_activity and budget_per_activity > 0:
+            sql += " AND (price IS NULL OR price = 0 OR price <= :bpa)"
+            params["bpa"] = budget_per_activity * 1.1
+        sql += " ORDER BY rating DESC LIMIT :lim"
+        params["lim"] = count
+        rows = conn.execute(text(sql), params).mappings().all()
+
+    new_acts = []
+    for row in rows:
+        db_act = dict(row)
+        new_acts.append({
+            "id":             db_act["id"],
+            "name":           db_act["name"],
+            "category":       db_act["category"],
+            "price":          _effective_price(db_act, has_muzekart),
+            "original_price": db_act.get("price") or 0,
+            "muzekart":       bool(db_act.get("muzekart")),
+            "rating":         db_act["rating"] or 0,
+            "latitude":       db_act["latitude"],
+            "longitude":      db_act["longitude"],
+            "image_url":      db_act["image_url"] or "",
+            "description":    db_act.get("description") or "",
+        })
+
+    if not new_acts:
+        return current_plan, []
+
+    # Son güne ekle — gün zaten doluysa yeni gün aç
+    days = [dict(d) for d in current_plan["days"]]
+    last_day = dict(days[-1])
+    if len(last_day["activities"]) >= MAX_PER_DAY:
+        last_day = {"day": len(days) + 1, "theme": "Antalya Turu", "activities": [], "day_cost": 0}
+        days.append(last_day)
+    merged = list(last_day["activities"]) + new_acts
+
+    # Dijkstra ile yeniden optimize et
+    act_ids = [a["id"] for a in merged]
+    try:
+        opt = optimize_route(act_ids)
+        optimized_ids = [r["id"] for r in opt["route"]]
+        id_to_act = {a["id"]: a for a in merged}
+        merged = [id_to_act[i] for i in optimized_ids if i in id_to_act]
+        for miss in merged:
+            if miss["id"] not in optimized_ids:
+                merged.append(miss)
+        for i, act in enumerate(merged):
+            segs = opt.get("segments", [])
+            if i < len(segs):
+                act["distance_km"] = segs[i].get("distance_km", 0)
+                act["walk_min"]    = segs[i].get("walk_min", 0)
+                act["drive_min"]   = segs[i].get("drive_min", 0)
+    except Exception:
+        pass
+
+    start_times = _calc_start_times(merged)
+    for i, act in enumerate(merged):
+        act["start_time"] = start_times[i]
+
+    last_day["activities"] = merged
+    last_day["day_cost"] = sum(a["price"] for a in merged)
+    days[-1] = last_day
+
+    total_cost = sum(d["day_cost"] for d in days)
+    added_names = [a["name"] for a in new_acts]
+    return {**current_plan, "days": days, "totalCost": total_cost}, added_names

@@ -8,13 +8,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database import get_db
 from models.trip import Trip
 from models.user import User
-from models.route import Route
+from models.activity import Activity
 from services.nlp import parse_input
-from services.optimizer import optimize_route
 from services.budget import calculate_budget
 from services.auth_deps import get_current_user
 from services.chat_engine import ChatEngine
-from services.plan_builder import build_plan
+from services.plan_builder import build_plan, add_to_plan
+from nlp.parser import ConversationSession
 
 router = APIRouter(prefix="/api", tags=["trips"])
 
@@ -29,10 +29,6 @@ class PlanChatRequest(BaseModel):
     session_id: str
     text: str
     reset: bool = False
-
-class OptimizeRouteRequest(BaseModel):
-    trip_id: int
-    activity_ids: list  # [1, 3, 5, 7]
 
 @router.post("/parse-input")
 def parse_user_input(request: ParseInputRequest, db: Session = Depends(get_db)):
@@ -82,6 +78,8 @@ def plan_chat(request: PlanChatRequest):
             plan = build_plan(collected, normalized_prefs)
             result["plan"] = plan
         except Exception as e:
+            import traceback
+            print("BUILD_PLAN HATASI:", traceback.format_exc())
             result["plan_error"] = str(e)
         finally:
             _engines.pop(session_id, None)
@@ -184,40 +182,6 @@ def get_user_trips(user_id: int, db: Session = Depends(get_db)):
     trips = db.query(Trip).filter(Trip.user_id == user_id).all()
     return {"trips": [{"id": t.id, "title": t.title, "status": t.status} for t in trips]}
 
-@router.post("/optimize-route")
-def optimize_route_endpoint(request: OptimizeRouteRequest, db: Session = Depends(get_db)):
-    # Trip var mı?
-    trip = db.query(Trip).filter(Trip.id == request.trip_id).first()
-    if not trip:
-        raise HTTPException(status_code=404, detail="Trip bulunamadi")
-    
-    # Rota optimizasyonunu yap
-    try:
-        optimization_result = optimize_route(request.trip_id, request.activity_ids, db)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    
-    # Route'u veritabanına kaydet
-    new_route = Route(
-        trip_id=request.trip_id,
-        activity_ids=optimization_result["optimized_order"],
-        total_distance=optimization_result["total_distance"],
-        total_duration=optimization_result["total_duration"],
-        total_cost_estimate=optimization_result["total_cost_estimate"]
-    )
-    db.add(new_route)
-    db.commit()
-    db.refresh(new_route)
-    
-    return {
-        "route_id": new_route.id,
-        "trip_id": request.trip_id,
-        "optimized_order": optimization_result["optimized_order"],
-        "total_distance": optimization_result["total_distance"],
-        "total_duration": optimization_result["total_duration"],
-        "total_cost_estimate": optimization_result["total_cost_estimate"],
-        "message": "Rota basariyla optimize edildi!"
-    }
 
 @router.get("/budget/{trip_id}")
 def get_budget(trip_id: int, db: Session = Depends(get_db)):
@@ -230,3 +194,149 @@ def get_budget(trip_id: int, db: Session = Depends(get_db)):
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/activities")
+def get_all_activities(db: Session = Depends(get_db)):
+    activities = db.query(Activity).order_by(Activity.rating.desc()).all()
+    return [
+        {
+            "id": a.id, "name": a.name, "category": a.category,
+            "description": a.description, "latitude": a.latitude,
+            "longitude": a.longitude, "price": a.price, "rating": a.rating,
+            "city": a.city, "image_url": a.image_url, "muzekart": a.muzekart,
+        }
+        for a in activities
+    ]
+
+
+@router.get("/activities/{activity_id}")
+def get_activity(activity_id: int, db: Session = Depends(get_db)):
+    a = db.query(Activity).filter(Activity.id == activity_id).first()
+    if not a:
+        raise HTTPException(status_code=404, detail="Aktivite bulunamadı")
+    return {
+        "id": a.id, "name": a.name, "category": a.category,
+        "description": a.description, "latitude": a.latitude,
+        "longitude": a.longitude, "price": a.price, "rating": a.rating,
+        "city": a.city, "image_url": a.image_url, "muzekart": a.muzekart,
+    }
+
+
+class PlanBuildRequest(BaseModel):
+    budget: Optional[float] = None
+    duration_days: Optional[int] = 1
+    group_type: Optional[str] = "solo"
+    categories: Optional[list] = []
+    locations: Optional[list] = []
+    sentiment_vector: Optional[dict] = {}
+    time_slots: Optional[dict] = {}
+    has_muzekart: Optional[bool] = False
+    age_groups: Optional[list] = []
+    is_family_trip: Optional[bool] = False
+    keywords: Optional[list] = []
+
+
+@router.post("/plan-build")
+def plan_build_endpoint(request: PlanBuildRequest):
+    """
+    Direkt plan oluşturma — ChatEngine'e gerek yok.
+    Refine modu ve yeniden inşa için kullanılır.
+    """
+    collected = {
+        "budget":          request.budget,
+        "duration_days":   request.duration_days or 1,
+        "group_type":      request.group_type or "solo",
+        "categories":      request.categories or [],
+        "locations":       request.locations or [],
+        "sentiment_vector": request.sentiment_vector or {},
+        "time_slots":      request.time_slots or {},
+        "has_muzekart":    request.has_muzekart or False,
+        "age_groups":      request.age_groups or [],
+        "is_family_trip":  request.is_family_trip or False,
+        "keywords":        request.keywords or [],
+    }
+    session = ConversationSession()
+    session.collected = collected
+    normalized_prefs = session.to_normalized_prefs()
+    try:
+        plan = build_plan(collected, normalized_prefs)
+        return {"plan": plan}
+    except Exception as e:
+        import traceback
+        print("PLAN_BUILD HATASI:", traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class PlanAddRequest(BaseModel):
+    current_plan: dict
+    category: str
+    existing_ids: Optional[list] = []
+    count: Optional[int] = 2
+    has_muzekart: Optional[bool] = False
+    budget_per_activity: Optional[float] = None
+
+
+@router.post("/plan-add")
+def plan_add_endpoint(request: PlanAddRequest):
+    """Mevcut plana kategori bazlı aktivite ekler, Dijkstra ile optimize eder."""
+    db_cat = _NLP_TO_DB.get(request.category, request.category)
+    updated, added_names = add_to_plan(
+        current_plan=request.current_plan,
+        db_category=db_cat,
+        existing_ids=request.existing_ids or [],
+        count=request.count or 2,
+        has_muzekart=request.has_muzekart or False,
+        budget_per_activity=request.budget_per_activity,
+    )
+    return {"plan": updated, "added_names": added_names}
+
+
+class PlanSuggestRequest(BaseModel):
+    existing_ids: list = []
+    category: Optional[str] = None
+    count: Optional[int] = 2
+    budget_per_activity: Optional[float] = None
+
+
+# Backend kategori eşleme (NLP kategorileri → DB kategorileri)
+_NLP_TO_DB = {
+    "historical": "tarihi_yer", "ruins": "tarihi_yer", "museum": "tarihi_yer",
+    "beach": "plaj", "beachclub": "plaj",
+    "nature": "doga", "waterfall": "doga", "cave": "doga", "park": "doga", "activity": "doga",
+    "restaurant": "restoran", "fine_dining": "restoran",
+    "nightlife": "gece_hayati",
+    "shopping": "alisveris", "mall": "alisveris", "market": "alisveris",
+    "themepark": "eglence", "family": "eglence",
+    "tarihi_yer": "tarihi_yer", "plaj": "plaj", "doga": "doga",
+    "restoran": "restoran", "gece_hayati": "gece_hayati",
+    "alisveris": "alisveris", "eglence": "eglence",
+}
+
+
+@router.post("/plan-suggest")
+def plan_suggest(request: PlanSuggestRequest, db: Session = Depends(get_db)):
+    """
+    Mevcut plana eklenecek aktivite önerir.
+    Zaten planda olan ID'leri dışlar, kategori filtresi uygular.
+    """
+    db_cat = _NLP_TO_DB.get(request.category, request.category) if request.category else None
+    query = db.query(Activity)
+    if db_cat:
+        query = query.filter(Activity.category == db_cat)
+    if request.existing_ids:
+        query = query.filter(Activity.id.notin_(request.existing_ids))
+    if request.budget_per_activity and request.budget_per_activity > 0:
+        query = query.filter(
+            (Activity.price == None) | (Activity.price == 0) | (Activity.price <= request.budget_per_activity)
+        )
+    activities = query.order_by(Activity.rating.desc()).limit(request.count).all()
+    return [
+        {
+            "id": a.id, "name": a.name, "category": a.category,
+            "description": a.description, "latitude": a.latitude,
+            "longitude": a.longitude, "price": a.price, "rating": a.rating,
+            "city": a.city, "image_url": a.image_url, "muzekart": a.muzekart,
+        }
+        for a in activities
+    ]

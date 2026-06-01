@@ -163,6 +163,9 @@ def optimize_route(selected_activity_ids: list, user_coords: tuple = None) -> di
         nearest  = None
         min_dist = float('inf')
 
+        # Dijkstra her iterasyonda bir kez hesaplanır (liste #18 fix)
+        dijkstra_distances = dijkstra(graph, route[-1]) if route else {}
+
         for node in unvisited:
             node_coords = get_activity_coordinates(node)
             if not node_coords:
@@ -171,28 +174,25 @@ def optimize_route(selected_activity_ids: list, user_coords: tuple = None) -> di
             if not route:
                 dist = haversine_distance(user_coords, node_coords)
             else:
-                dijkstra_distances = dijkstra(graph, route[-1])
                 dist = dijkstra_distances.get(node, float('inf'))
 
             if dist < min_dist:
                 min_dist = dist
                 nearest  = node
 
-        # Fallback: graf kopukluğu
+        # Fallback: koordinatı olan herhangi bir unvisited düğüm
         if nearest is None:
-            nearest = min(
-                unvisited,
-                key=lambda x: haversine_distance(
-                    current_coords, get_activity_coordinates(x)
-                )
-            )
-            min_dist = haversine_distance(
-                current_coords, get_activity_coordinates(nearest)
-            )
+            candidates = [(n, get_activity_coordinates(n)) for n in unvisited]
+            candidates = [(n, c) for n, c in candidates if c is not None]
+            if candidates:
+                nearest, _ = min(candidates, key=lambda nc: haversine_distance(current_coords, nc[1]))
+                min_dist = haversine_distance(current_coords, get_activity_coordinates(nearest))
+            else:
+                nearest = next(iter(unvisited))
+                min_dist = 0
 
         total_distance += min_dist
 
-        # Ulaşım sürelerini hesapla
         times = travel_times(min_dist)
 
         segments.append({
@@ -204,7 +204,9 @@ def optimize_route(selected_activity_ids: list, user_coords: tuple = None) -> di
 
         route.append(nearest)
         unvisited.remove(nearest)
-        current_coords = get_activity_coordinates(nearest)
+        new_coords = get_activity_coordinates(nearest)
+        if new_coords:
+            current_coords = new_coords
 
     # Toplam süreler
     total_walk_min    = sum(s["walk_min"]    for s in segments)

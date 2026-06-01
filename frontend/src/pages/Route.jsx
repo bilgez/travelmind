@@ -4,7 +4,17 @@ import { savePlan } from '../api/index'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
 
-const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+const _PRIMARY_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+const _BACKUP_KEY  = import.meta.env.VITE_GOOGLE_MAPS_API_KEY_BACKUP
+const MAPS_API_KEY = sessionStorage.getItem('mapsKey') || _PRIMARY_KEY
+
+if (_BACKUP_KEY && !sessionStorage.getItem('mapsKeyFailed')) {
+  window.gm_authFailure = () => {
+    sessionStorage.setItem('mapsKeyFailed', '1')
+    sessionStorage.setItem('mapsKey', _BACKUP_KEY)
+    window.location.reload()
+  }
+}
 
 const DAY_COLORS = [
   '#96C8C8', '#96AAD4', '#B896D4', '#D49696',
