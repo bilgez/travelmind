@@ -30,6 +30,16 @@ class ChatEngine:
         "yaklaşık bütçeni de bilmem yeterli. Ne kadar ayırdın bu gezi için?"
     )
 
+    MUZEKART_QUESTION = (
+        "Son bir sorum: Müzekartın var mı? "
+        "Perge, Aspendos, Termessos gibi mekanlarda bilet ücretsiz oluyor, "
+        "bütçeni daha doğru hesaplayabileyim."
+    )
+
+    MUZEKART_YES = {"evet", "var", "müzekartım", "müzekart var", "yes", "yep",
+                    "tabii", "elbette", "mevcut", "sahip", "aldım", "alındı"}
+    MUZEKART_NO  = {"hayır", "yok", "hayir", "no", "nope", "almadım", "almadim"}
+
     READY_RESPONSE_TEMPLATE = (
         "Harika, sana uygun aktiviteleri buldum! "
         "Bütçen ({budget} TL){days_part} için "
@@ -43,6 +53,7 @@ class ChatEngine:
 
     def __init__(self):
         self.session = ConversationSession()
+        self._muzekart_asked = False
 
     def handle_message(self, user_text: str) -> dict:
         """
@@ -96,7 +107,38 @@ class ChatEngine:
                 "session_summary": self.session.summary(),
             }
 
-        # ── Bütçe var → öneri üret ──────────────────────────────────────
+        # ── Müzekart sorusu ─────────────────────────────────────────────
+        if self.session.collected["has_muzekart"] is None:
+            if self._muzekart_asked:
+                # Soru sorulmuştu, cevabı al
+                answer = self._detect_muzekart(text_lower)
+                if answer is not None:
+                    self.session.collected["has_muzekart"] = answer
+                else:
+                    return {
+                        "reply": self.MUZEKART_QUESTION,
+                        "recommendations": None,
+                        "budget_plan": None,
+                        "budget_swaps": [],
+                        "state": "need_muzekart",
+                        "session_summary": self.session.summary(),
+                    }
+            elif "müzekart" in text_lower:
+                # Kullanıcı kendi söyledi
+                self.session.collected["has_muzekart"] = self._detect_muzekart(text_lower) or False
+            else:
+                # Soruyu sor
+                self._muzekart_asked = True
+                return {
+                    "reply": self.MUZEKART_QUESTION,
+                    "recommendations": None,
+                    "budget_plan": None,
+                    "budget_swaps": [],
+                    "state": "need_muzekart",
+                    "session_summary": self.session.summary(),
+                }
+
+        # ── Bütçe + müzekart var → öneri üret ───────────────────────────
         return self._produce_recommendations()
 
     # ────────────────────────────────────────────────────────────────────
@@ -160,9 +202,10 @@ class ChatEngine:
             days_part=days_part,
         )
 
-        # Bütçe uyarısı
+        # Bütçe uyarısı (müzekart varsa hesaplama tam fiyatla yapıldı, uyarıyı gösterme)
+        has_muzekart = self.session.collected.get("has_muzekart", False)
         budget_plan = result.get("budget_plan")
-        if budget_plan:
+        if budget_plan and not has_muzekart:
             if budget_plan["status"] == "over_budget":
                 reply += (
                     f"\n\n⚠️ Önerilen aktivitelerin toplam maliyeti "
@@ -186,6 +229,14 @@ class ChatEngine:
             "state":            "ready",
             "session_summary":  self.session.summary(),
         }
+
+    def _detect_muzekart(self, text: str) -> bool | None:
+        words = set(text.replace(",", " ").replace(".", " ").split())
+        if words & self.MUZEKART_YES:
+            return True
+        if words & self.MUZEKART_NO:
+            return False
+        return None
 
     def reset(self):
         """Oturumu sıfırla (yeni kullanıcı veya yeni gezi)."""

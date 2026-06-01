@@ -159,6 +159,12 @@ ACTIVITY_KEYWORDS = {
     "restoran":         "restaurant",
     "restoranlar":      "restaurant",
     "yemek":            "restaurant",
+    "yemeği":           "restaurant",
+    "yemeğe":           "restaurant",
+    "yemekte":          "restaurant",
+    "akşam yemeği":     "restaurant",
+    "öğle yemeği":      "restaurant",
+    "yemek yiyelim":    "restaurant",
     "balık":            "restaurant",
     "kafe":             "restaurant",
     "kahvaltı":         "restaurant",
@@ -394,6 +400,7 @@ class ConversationSession:
             "keywords":         [],
             "is_family_trip":   False,
             "age_suitability_active": False,
+            "has_muzekart":     None,
         }
         self.history: list[dict] = []
         self.turn_count: int = 0
@@ -496,22 +503,15 @@ class ConversationSession:
         all_cats = [
             "historical", "nature", "restaurant", "nightlife",
             "shopping", "museum", "beach", "family",
-        ]
+            "cave", "waterfall", "park", "ruins", "activity",
+            "wellness", "themepark", "beachclub",
+        ]       
         # Alt kategorileri ana kategoriye eşle (ruins→historical, cave→nature vb.)
         SUBCAT_MAP = {
-            "ruins":      "historical",
-            "museum":     "historical",
-            "gallery":    "historical",
-            "religious":  "historical",
-            "cave":       "cave",        # nature'a çevirme, olduğu gibi bırak
-            "waterfall":  "waterfall",   # nature'a çevirme, olduğu gibi bırak
-            "park":       "park",        # nature'a çevirme, olduğu gibi bırak
-            "activity":   "activity",
-            "beachclub":  "beach",
-            "mall":       "shopping",
-            "market":     "shopping",
-            "themepark":  "themepark",
-            "wellness":   "wellness",
+            "gallery":   "historical",
+            "religious": "historical",
+            "mall":      "shopping",
+            "market":    "shopping",
         }
         interest_vector = {cat: 0 for cat in all_cats}
         for cat in self.collected["categories"]:
@@ -808,7 +808,15 @@ def parse_user_input(text: str) -> dict:
     result["group_type_explicit"] = explicit
 
     result["age_groups"] = extract_age_groups(text)
-    result["sentiment_vector"] = build_sentiment_vector(text)
+    import re as _re
+    parts = _re.split(r'[,،;]', text)
+    combined_sv = {}
+    for part in parts:
+        part_sv = build_sentiment_vector(part)
+        for cat, score in part_sv.items():
+            if score != 0:
+                combined_sv[cat] = score
+    result["sentiment_vector"] = combined_sv
 
     result["is_family_trip"] = (
         result["group_type"] == "family" or bool(result["age_groups"])

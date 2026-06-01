@@ -5,7 +5,7 @@ Akış:
   1. Kullanıcı tercihleri (budget, duration, categories, group_type, sentiment...)
   2. hybrid_recommend → aktivite skorları (JSON'dan, cosine similarity)
   3. Yeterli aktivite yoksa score'a göre tamamla
-  4. Günlere böl (4 aktivite/gün)
+  4. Günlere böl (zaman + bütçeye göre, 2-6 aktivite/gün)
   5. Her gün için nlp/optimizer.py → Dijkstra sıralaması
   6. DB'den tam detay çek (description, latitude/longitude, rating, image_url)
   7. Yapılandırılmış plan döndür
@@ -13,6 +13,7 @@ Akış:
 
 import os
 import sys
+import json
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import text
@@ -20,6 +21,11 @@ from database import engine
 
 from nlp.recommender import hybrid_recommend, get_recommendations
 from nlp.optimizer import optimize_route
+
+# Müzekart kabul eden mekan isimleri (JSON'dan, DB'de bu kolon yok)
+_JSON_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "antalya_activities.json")
+with open(_JSON_PATH, encoding="utf-8") as _f:
+    _MUZEKART_NAMES: set = {a["name"] for a in json.load(_f) if a.get("muzekart")}
 
 # ──────────────────────────────────────────
 # KATEGORİ DÖNÜŞÜM HARİTALARI
@@ -65,11 +71,18 @@ def _get_db_activities_by_ids(ids: list) -> dict:
     if not ids:
         return {}
     with engine.connect() as conn:
-        placeholders = ','.join(str(i) for i in ids)
         result = conn.execute(
-            text(f"SELECT * FROM activities WHERE id IN ({placeholders})")
+            text("SELECT * FROM activities WHERE id = ANY(:ids)"),
+            {"ids": list(ids)}
         )
         return {row['id']: dict(row) for row in result.mappings().all()}
+
+
+def _effective_price(db_act: dict, has_muzekart: bool) -> float:
+    """Müzekart varsa ve mekan müzekart kabul ediyorsa 0, yoksa DB fiyatı döner."""
+    if has_muzekart and db_act.get("name") in _MUZEKART_NAMES:
+        return 0
+    return db_act.get("price") or 0
 
 
 def _get_all_db_activities() -> list:
@@ -89,16 +102,61 @@ def _dominant_category(activities: list) -> str:
     return max(counts, key=counts.get) if counts else "tarihi_yer"
 
 
-def _calc_start_time(activities: list, index: int) -> str:
-    current = 9 * 60  # 09:00
-    for i in range(index):
-        cat = activities[i].get("category", "")
-        dur = VISIT_DURATIONS.get(cat, 90)
+MAX_DAY_MINUTES = 660   # 09:00 → 20:00
+MAX_PER_DAY     = 6
+MIN_PER_DAY     = 2
+
+
+def _calc_start_times(activities: list) -> list:
+    """Tüm aktiviteler için start_time'ları tek geçişte hesaplar (O(n))."""
+    times = []
+    current = 9 * 60
+    for act in activities:
+        h, m = divmod(current, 60)
+        times.append(f"{h:02d}:{m:02d}")
+        dur = VISIT_DURATIONS.get(act.get("category", ""), 90)
         current += dur + 20
         if 12.5 * 60 <= current < 14 * 60:
             current = 14 * 60
-    h, m = divmod(current, 60)
-    return f"{h:02d}:{m:02d}"
+    return times
+
+
+def _fill_day(pool: list, forced_ids: set, daily_budget: float,
+              used_ids: set, negative_tr_cats: set) -> list:
+    """
+    Zaman ve bütçeye sığan aktiviteleri seç.
+    Forced aktiviteler (kullanıcının yazdıkları) her zaman dahil edilir.
+    """
+    day_acts = []
+    time_used = 0
+    spent = 0
+
+    for act in pool:
+        if act["id"] in used_ids:
+            continue
+
+        is_forced = act["id"] in forced_ids
+
+        if not is_forced and act["category"] in negative_tr_cats:
+            continue
+
+        act_time = VISIT_DURATIONS.get(act["category"], 90) + 20
+        price = act["price"]
+
+        if not is_forced:
+            if len(day_acts) >= MAX_PER_DAY:
+                continue
+            if time_used + act_time > MAX_DAY_MINUTES:
+                continue
+            if daily_budget > 0 and price > 0 and spent + price > daily_budget * 1.1:
+                continue
+
+        day_acts.append(act)
+        time_used += act_time
+        spent += price
+        used_ids.add(act["id"])
+
+    return day_acts
 
 
 # ──────────────────────────────────────────
@@ -112,9 +170,10 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
     FIX 2: Belirtilen lokasyonlar (Perge, Aspendos vs.) plana zorla girer.
     FIX 3: Bütçe aşıldığında pahalı mekanlar ucuzlarla değiştirilir.
     """
-    duration_days = collected.get("duration_days") or 1
-    budget = collected.get("budget") or 0
-    needed = duration_days * 4
+    duration_days  = collected.get("duration_days") or 1
+    budget         = collected.get("budget") or 0
+    has_muzekart   = collected.get("has_muzekart") or False
+    max_candidates = duration_days * MAX_PER_DAY
 
     # ── FIX 1: Negatif sentiment → dışlanacak Türkçe DB kategorileri ──
     sentiment_vector = collected.get("sentiment_vector", {})
@@ -135,16 +194,18 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
         for db_act in all_db_for_locs:
             if db_act["name"] in loc_names and db_act["id"] not in forced_ids:
                 forced_activities.append({
-                    "id":          db_act["id"],
-                    "name":        db_act["name"],
-                    "category":    db_act["category"],
-                    "price":       db_act["price"] or 0,
-                    "rating":      db_act["rating"] or 0,
-                    "latitude":    db_act["latitude"],
-                    "longitude":   db_act["longitude"],
-                    "image_url":   db_act["image_url"] or "",
-                    "description": db_act.get("description") or "",
-                    "match_score": 1.0,
+                    "id":             db_act["id"],
+                    "name":           db_act["name"],
+                    "category":       db_act["category"],
+                    "price":          _effective_price(db_act, has_muzekart),
+                    "original_price": db_act.get("price") or 0,
+                    "muzekart":       db_act.get("name") in _MUZEKART_NAMES,
+                    "rating":         db_act["rating"] or 0,
+                    "latitude":       db_act["latitude"],
+                    "longitude":      db_act["longitude"],
+                    "image_url":      db_act["image_url"] or "",
+                    "description":    db_act.get("description") or "",
+                    "match_score":    1.0,
                 })
                 forced_ids.add(db_act["id"])
 
@@ -173,10 +234,10 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
             all_recs.append(rec)
     all_recs.sort(key=lambda x: x.get("match_score", 0), reverse=True)
 
-    # Yeterli aktivite yoksa daha fazla al
-    if len(all_recs) + len(forced_activities) < needed:
+    # Yeterli aday yoksa daha fazla al
+    if len(all_recs) + len(forced_activities) < max_candidates:
         extra = get_recommendations(
-            normalized_prefs, top_n=needed * 3,
+            normalized_prefs, top_n=max_candidates * 2,
             mode="balanced", ages=ages, family_boost=is_family
         )
         for rec in extra:
@@ -185,7 +246,7 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
                 all_recs.append(rec)
 
     # ── 2. DB'den tam detayları çek ──
-    rec_ids = [r["id"] for r in all_recs[:needed + 10]]
+    rec_ids = [r["id"] for r in all_recs]
     db_map = _get_db_activities_by_ids(rec_ids)
 
     enriched = []
@@ -196,65 +257,58 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
         if db_act["category"] in negative_tr_cats:
             continue
         enriched.append({
-            "id":          db_act["id"],
-            "name":        db_act["name"],
-            "category":    db_act["category"],
-            "price":       db_act["price"] or 0,
-            "rating":      db_act["rating"] or rec.get("popularity", 0),
-            "latitude":    db_act["latitude"],
-            "longitude":   db_act["longitude"],
-            "image_url":   db_act["image_url"] or "",
-            "description": db_act.get("description") or "",
-            "match_score": rec.get("match_score", 0),
+            "id":             db_act["id"],
+            "name":           db_act["name"],
+            "category":       db_act["category"],
+            "price":          _effective_price(db_act, has_muzekart),
+            "original_price": db_act.get("price") or 0,
+            "muzekart":       db_act.get("name") in _MUZEKART_NAMES,
+            "rating":         db_act["rating"] or rec.get("popularity", 0),
+            "latitude":       db_act["latitude"],
+            "longitude":      db_act["longitude"],
+            "image_url":      db_act["image_url"] or "",
+            "description":    db_act.get("description") or "",
+            "match_score":    rec.get("match_score", 0),
         })
-        if len(enriched) >= needed:
-            break
 
     # Yetmezse DB'den negatif olmayan aktiviteler ekle
-    if len(enriched) + len(forced_activities) < needed:
+    if len(enriched) + len(forced_activities) < max_candidates:
         all_db = _get_all_db_activities()
         existing_ids = {a["id"] for a in enriched} | forced_ids
+        daily_budget = budget / duration_days if budget > 0 else 0
         for db_act in all_db:
             if db_act["id"] in existing_ids:
                 continue
             if db_act["category"] in negative_tr_cats:
                 continue
-            # FIX 3: Bütçe filtresi fallback'te de uygula
-            if budget > 0 and db_act["price"] > 0:
-                per_day = budget / duration_days
-                if db_act["price"] > per_day:
-                    continue
+            eff = _effective_price(db_act, has_muzekart)
+            if daily_budget > 0 and eff > 0 and eff > daily_budget * 1.1:
+                continue
             enriched.append({
-                "id":          db_act["id"],
-                "name":        db_act["name"],
-                "category":    db_act["category"],
-                "price":       db_act["price"] or 0,
-                "rating":      db_act["rating"] or 0,
-                "latitude":    db_act["latitude"],
-                "longitude":   db_act["longitude"],
-                "image_url":   db_act["image_url"] or "",
-                "description": db_act.get("description") or "",
-                "match_score": 0,
+                "id":             db_act["id"],
+                "name":           db_act["name"],
+                "category":       db_act["category"],
+                "price":          eff,
+                "original_price": db_act.get("price") or 0,
+                "muzekart":       db_act.get("name") in _MUZEKART_NAMES,
+                "rating":         db_act["rating"] or 0,
+                "latitude":       db_act["latitude"],
+                "longitude":      db_act["longitude"],
+                "image_url":      db_act["image_url"] or "",
+                "description":    db_act.get("description") or "",
+                "match_score":    0,
             })
-            if len(enriched) + len(forced_activities) >= needed:
-                break
 
-    # FIX 2: Zorunlu mekanları başa ekle
+    # Forced aktiviteleri başa al
     final_pool = forced_activities + enriched
 
-    # ── FIX 3: Bütçe kontrolü ──
-    if budget > 0 and len(final_pool) > needed:
-        per_day_budget = budget / duration_days
-        budget_pool = [a for a in final_pool
-                       if a["price"] == 0 or a["price"] <= per_day_budget
-                       or a["id"] in forced_ids]
-        if len(budget_pool) >= needed:
-            final_pool = budget_pool
-
-    # ── 3. Günlere böl ──
+    # ── 3. Günlere böl (zaman + bütçe bazlı) ──
+    daily_budget = budget / duration_days if budget > 0 else 0
+    used_ids: set = set()
     days = []
+
     for d in range(duration_days):
-        day_acts = final_pool[d * 4:(d + 1) * 4]
+        day_acts = _fill_day(final_pool, forced_ids, daily_budget, used_ids, negative_tr_cats)
         if not day_acts:
             break
 
@@ -279,8 +333,9 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
         except Exception:
             day_acts_ordered = day_acts
 
+        start_times = _calc_start_times(day_acts_ordered)
         for i, act in enumerate(day_acts_ordered):
-            act["start_time"] = _calc_start_time(day_acts_ordered, i)
+            act["start_time"] = start_times[i]
 
         dominant = _dominant_category(day_acts_ordered)
         day_cost = sum(a["price"] for a in day_acts_ordered)
@@ -308,9 +363,10 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
     }
 
     return {
-        "title":     PLAN_TITLES.get(dominant_overall, f"{duration_days} Günlük Antalya Tatili"),
-        "totalCost": total_cost,
-        "budget":    budget,
-        "duration":  duration_days,
-        "days":      days,
+        "title":       PLAN_TITLES.get(dominant_overall, f"{duration_days} Günlük Antalya Tatili"),
+        "totalCost":   total_cost,
+        "budget":      budget,
+        "duration":    duration_days,
+        "has_muzekart": has_muzekart,
+        "days":        days,
     }

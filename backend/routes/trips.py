@@ -144,6 +144,7 @@ def get_my_plans(current_user: User = Depends(get_current_user), db: Session = D
                 extra = json.loads(t.plan_data)
                 plan_obj.update(extra)
                 plan_obj["id"] = str(t.id)
+                plan_obj["title"] = t.title
                 plan_obj["totalCost"] = t.total_budget or plan_obj.get("totalCost", 0)
             except Exception:
                 pass

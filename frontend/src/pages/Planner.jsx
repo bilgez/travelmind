@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
-import { planChat, parseInput, getAllActivities } from '../api/index'
+import { planChat, parseInput, getAllActivities, savePlan as savePlanApi } from '../api/index'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -382,7 +382,14 @@ function SortableActivityCard({ activity, time, color, index, onRemove, onFocus,
               <span className="text-xs font-semibold text-[#4A9898]">
                 {activity.price === 0 ? 'Ücretsiz' : `${activity.price} ₺`}
               </span>
-              {MUZEKART_VENUES.has(activity.name) && (
+              {activity.muzekart && activity.price === 0 && activity.original_price > 0 && (
+                <>
+                  <span className="text-xs text-gray-300">·</span>
+                  <span style={{ fontSize: '11px', color: '#9ca3af', textDecoration: 'line-through' }}>{activity.original_price} ₺</span>
+                  <span className="text-xs italic text-emerald-600">Müzekart: ücretsiz</span>
+                </>
+              )}
+              {activity.muzekart && activity.price > 0 && (
                 <>
                   <span className="text-xs text-gray-300">·</span>
                   <span className="text-xs italic text-emerald-600">Müzekart: ücretsiz</span>
@@ -672,7 +679,7 @@ export default function Planner() {
       const chat = chatRes.data
 
       // Selamlama veya soru — sadece yanıtı göster
-      if (chat.state === 'greeting' || chat.state === 'need_budget') {
+      if (chat.state === 'greeting' || chat.state === 'need_budget' || chat.state === 'need_muzekart') {
         addAiMessage(chat.reply)
         setLoading(false); return
       }
@@ -731,31 +738,29 @@ export default function Planner() {
   const [savedToast, setSavedToast] = useState(false)
   const [loginBanner, setLoginBanner] = useState(false)
 
-  const savePlan = () => {
+  const savePlan = async () => {
     if (!plan) return
     if (!localStorage.getItem('token')) {
       setLoginBanner(true)
       return
     }
-    const raw = localStorage.getItem('travelmind_plans')
-    const plans = raw ? JSON.parse(raw) : []
-    const existing = plans.findIndex(p => p.id === plan.id)
-    const entry = {
-      id: plan.id || Date.now().toString(),
-      title: plan.title,
-      createdAt: plan.createdAt || new Date().toISOString(),
-      days: plan.days,
-      totalCost: plan.totalCost,
-      budget: plan.budget,
-      duration: plan.duration,
-      status: 'active',
+    try {
+      const payload = {
+        trip_id: plan.id && !isNaN(Number(plan.id)) ? Number(plan.id) : null,
+        title: plan.title,
+        plan_data: JSON.stringify({ days: plan.days, title: plan.title, duration: plan.duration, budget: plan.budget }),
+        total_cost: plan.totalCost || 0,
+        duration: plan.duration || 1,
+        budget: plan.budget || 0,
+        status: 'active',
+      }
+      const res = await savePlanApi(payload)
+      setPlan(prev => ({ ...prev, id: String(res.data.id) }))
+      setSavedToast(true)
+      setTimeout(() => setSavedToast(false), 2500)
+    } catch {
+      setSavedToast(false)
     }
-    if (existing >= 0) plans[existing] = entry
-    else plans.unshift(entry)
-    localStorage.setItem('travelmind_plans', JSON.stringify(plans))
-    setPlan(prev => ({ ...prev, id: entry.id, createdAt: entry.createdAt }))
-    setSavedToast(true)
-    setTimeout(() => setSavedToast(false), 2500)
   }
 
   useEffect(() => {
@@ -1362,9 +1367,15 @@ export default function Planner() {
                     <p style={{ fontSize: 11, color: '#f59e0b', margin: '0 0 2px' }}>★ {selectedMarker.rating}</p>
                     <p style={{ fontSize: 11, color: '#4A9898', fontWeight: 600 }}>
                       {selectedMarker.price === 0 ? 'Ücretsiz' : `${selectedMarker.price} ₺`}
+                      {selectedMarker.muzekart && selectedMarker.price === 0 && selectedMarker.original_price > 0 && (
+                        <span style={{ marginLeft: 4, fontSize: 10, textDecoration: 'line-through', color: '#9ca3af' }}>{selectedMarker.original_price} ₺</span>
+                      )}
                     </p>
-                    {MUZEKART_VENUES.has(selectedMarker.name) && (
+                    {selectedMarker.muzekart && selectedMarker.price > 0 && (
                       <p style={{ fontSize: 10, color: '#059669', fontStyle: 'italic', margin: '2px 0 0' }}>Müzekart: ücretsiz</p>
+                    )}
+                    {selectedMarker.muzekart && selectedMarker.price === 0 && (
+                      <p style={{ fontSize: 10, color: '#059669', fontStyle: 'italic', margin: '2px 0 0' }}>Müzekart ile ücretsiz</p>
                     )}
                   </div>
                 </InfoWindow>

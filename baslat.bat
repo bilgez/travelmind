@@ -11,12 +11,12 @@ if %errorlevel% neq 0 (
 timeout /t 2 /nobreak > nul
 
 echo Backend baslatiliyor...
-start "" cmd /k "cd /d "%~dp0backend" && "%~dp0backend\venv\Scripts\activate.bat" && uvicorn main:app --reload"
+start "" cmd /k "cd /d "%~dp0backend" && "%~dp0backend\venv\Scripts\activate.bat" && uvicorn main:app --reload --host 0.0.0.0"
 
 timeout /t 2 /nobreak > nul
 
 echo Frontend baslatiliyor...
-start "" cmd /k "cd /d "%~dp0frontend" && npm run dev"
+start "" cmd /k "cd /d "%~dp0frontend" && npm run dev -- --host"
 
 timeout /t 4 /nobreak > nul
 

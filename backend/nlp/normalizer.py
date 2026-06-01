@@ -128,7 +128,7 @@ def normalize_user_preferences(raw_prefs: dict, parsed_input: dict = None) -> di
     for cat in group_boost_cats:
         if cat in interest_vector:
             if has_explicit:
-                interest_vector[cat] = max(interest_vector[cat], 0.3)
+                interest_vector[cat] = max(interest_vector[cat], 0.7)
             else:
                 interest_vector[cat] = max(interest_vector[cat], 1)
 
