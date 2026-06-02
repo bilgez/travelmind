@@ -172,7 +172,7 @@ export default function About() {
             { title: 'Bütçeni aşmıyor', body: 'Her aktivitenin gerçek fiyatıyla çalışır. Toplam maliyet her adımda güncel olarak gösterilir.' },
             { title: 'Zaman kaybettirmiyor', body: 'Hangi mekanların birbirine yakın olduğunu bilir. Gereksiz gidip gelmeler olmadan optimal rota çizer.' },
             { title: `${activityCount}'den fazla mekan`, body: 'Tarihi alanlar, plajlar, doğa, restoranlar, gece hayatı ve alışveriş — Antalya\'nın tamamı kapsanıyor.' },
-            { title: 'Hesap gerektirmiyor', body: 'Kayıt olmadan, form doldurmadan hemen başlarsın. Bir cümle yaz, planın hazır.' },
+            { title: 'Hemen başla', body: 'Bir cümle yaz, planın hazır. Kaydetmek istersen ücretsiz kayıt yeterli.' },
           ].map((f, i) => (
             <motion.div key={i} {...fadeUp(i * 0.06)} className="flex gap-6 items-start py-2 border-b border-gray-50 last:border-0">
               <div className="w-1.5 h-1.5 rounded-full mt-2.5 flex-shrink-0" style={{ backgroundColor: ACCENT }} />
