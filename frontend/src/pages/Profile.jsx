@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import Navbar, { BRAND } from '../components/Navbar'
@@ -39,6 +39,7 @@ function Toast({ message, type }) {
 }
 
 export default function Profile() {
+  useEffect(() => { document.title = 'Profil | TravelMind' }, [])
   const navigate = useNavigate()
   const currentUsername = localStorage.getItem('username') || ''
 
