@@ -14,35 +14,23 @@ Base.metadata.create_all(bind=engine)
 from sqlalchemy import text
 import json, os
 
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE trips ADD COLUMN plan_data TEXT"))
-        conn.commit()
-except Exception:
-    pass
+with engine.connect() as conn:
+    conn.execute(text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS plan_data TEXT"))
+    conn.execute(text("ALTER TABLE activities ADD COLUMN IF NOT EXISTS muzekart BOOLEAN DEFAULT FALSE"))
+    conn.commit()
 
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE activities ADD COLUMN muzekart BOOLEAN DEFAULT FALSE"))
-        conn.commit()
-except Exception:
-    pass
-
-# JSON'daki muzekart değerlerini DB'ye aktar (bir kerelik)
-try:
-    _json_path = os.path.join(os.path.dirname(__file__), "data", "antalya_activities.json")
+# muzekart değerlerini JSON'dan aktar — yalnızca henüz FALSE olan satırları günceller
+_json_path = os.path.join(os.path.dirname(__file__), "data", "antalya_activities.json")
+if os.path.exists(_json_path):
     with open(_json_path, encoding="utf-8") as _f:
-        _activities = json.load(_f)
-    _muzekart_names = {a["name"] for a in _activities if a.get("muzekart")}
+        _muzekart_names = {a["name"] for a in json.load(_f) if a.get("muzekart")}
     with engine.connect() as conn:
         for name in _muzekart_names:
             conn.execute(
-                text("UPDATE activities SET muzekart = TRUE WHERE name = :name"),
+                text("UPDATE activities SET muzekart = TRUE WHERE name = :name AND muzekart = FALSE"),
                 {"name": name}
             )
         conn.commit()
-except Exception:
-    pass
 
 app = FastAPI(title="TravelMind API", version="1.0.0")
 

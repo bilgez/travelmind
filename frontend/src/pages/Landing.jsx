@@ -270,9 +270,9 @@ function ChatMockup() {
 function PlanMockup() {
   const stops = [
     { time: '09:00', name: 'Kaleiçi Eski Şehir', price: 'Ücretsiz', dot: 'bg-[#96C8C8]' },
-    { time: '11:30', name: 'Hadrian Kapısı', price: 'Ücretsiz', dot: 'bg-[#7DBCBC]' },
-    { time: '14:00', name: 'Perge Antik Kenti', price: '590 ₺', dot: 'bg-emerald-400' },
-    { time: '17:30', name: 'Aspendos Tiyatrosu', price: '800 ₺', dot: 'bg-orange-400' },
+    { time: '11:30', name: 'Hadrian Kapısı', price: 'Ücretsiz', dot: 'bg-[#C4B5D8]' },
+    { time: '14:00', name: 'Perge Antik Kenti', price: '590 ₺', dot: 'bg-[#F0C4A8]' },
+    { time: '17:30', name: 'Aspendos Tiyatrosu', price: '800 ₺', dot: 'bg-[#F0B8C8]' },
   ]
   return (
     <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 p-6 max-w-sm w-full">
@@ -398,10 +398,16 @@ export default function Landing() {
   }, [])
 
   useEffect(() => {
-    getAllActivities().then(res => {
-      setActivities(res.data.activities || res.data)
-      setLoading(false)
-    }).catch(() => setLoading(false))
+    const fetchWithRetry = (attempt = 1) => {
+      getAllActivities().then(res => {
+        setActivities(res.data.activities || res.data)
+        setLoading(false)
+      }).catch(() => {
+        if (attempt < 4) setTimeout(() => fetchWithRetry(attempt + 1), 3000)
+        else setLoading(false)
+      })
+    }
+    fetchWithRetry()
   }, [])
 
   const filtered = activeCategory === 'all' ? activities : activities.filter(a => a.category === activeCategory)

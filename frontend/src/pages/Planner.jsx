@@ -873,11 +873,16 @@ export default function Planner() {
             <div className="flex items-end gap-2 bg-gray-50 rounded-2xl p-2.5 border border-gray-100 focus-within:border-gray-300 transition-colors">
               <textarea
                 value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
+                onChange={e => {
+                  setInput(e.target.value)
+                  e.target.style.height = 'auto'
+                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
+                }}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); e.target.style.height = 'auto' } }}
                 placeholder="Gezini anlat..."
-                className="flex-1 bg-transparent text-xs text-gray-800 placeholder-gray-400 resize-none outline-none max-h-20 py-0.5 px-1"
+                className="flex-1 bg-transparent text-xs text-gray-800 placeholder-gray-400 resize-none outline-none py-0.5 px-1"
                 rows={1}
+                style={{ height: 'auto', maxHeight: '120px', overflowY: 'auto' }}
               />
               <button
                 onClick={() => sendMessage()}
