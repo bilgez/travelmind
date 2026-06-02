@@ -487,17 +487,16 @@ def _apply_diversity(activities: list, cat_penalty: float = 0.08, region_penalty
 # ──────────────────────────────────────────
 # HYBRİD ÖNERİ MERKEZİ (TAMAMEN KORUNDU)
 # ──────────────────────────────────────────
-def hybrid_recommend(parsed_input: dict, normalized_prefs: dict) -> dict:
+def hybrid_recommend(parsed_input: dict, normalized_prefs: dict, mode: str = "balanced") -> dict:
     ages = parsed_input.get("age_groups", [])
     is_family = parsed_input.get("is_family_trip", False)
     raw_budget = normalized_prefs["budget"].get("raw", 0)
     duration = normalized_prefs.get("duration", {}).get("days", 1)
     b_level = normalized_prefs["budget"].get("level", "medium")
 
-    # diversity_boost=True parametresi tüm paket modlarına eklendi!
     budget_options = get_recommendations(normalized_prefs, top_n=10, mode="budget", ages=ages, family_boost=is_family, diversity_boost=True)
     speed_options = get_recommendations(normalized_prefs, top_n=10, mode="speed", ages=ages, family_boost=is_family, diversity_boost=True)
-    balanced_recs = get_recommendations(normalized_prefs, top_n=15, mode="balanced", ages=ages, family_boost=is_family, diversity_boost=True)
+    balanced_recs = get_recommendations(normalized_prefs, top_n=15, mode=mode, ages=ages, family_boost=is_family, diversity_boost=True)
 
     by_time_slot = {}
     user_keywords = parsed_input.get("keywords", [])
@@ -526,7 +525,7 @@ def hybrid_recommend(parsed_input: dict, normalized_prefs: dict) -> dict:
                             })
 
     return {
-        "budget_friendly_package": budget_options[:5], "premium_speed_package": speed_options[:5],
-        "balanced_recommendations": balanced_recs[:5], "by_time_slot": by_time_slot,
+        "budget_friendly_package": budget_options[:10], "premium_speed_package": speed_options[:10],
+        "balanced_recommendations": balanced_recs[:15], "by_time_slot": by_time_slot,
         "budget_plan": budget_plan, "budget_swaps": budget_swaps, "age_filter_applied": bool(ages), "family_mode": is_family,
     }

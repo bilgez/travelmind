@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import TravelMindMark from '../components/TravelMindMark'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
@@ -36,6 +37,14 @@ const CATEGORY_LABELS = {
   tarihi_yer: 'Tarihi Yer', plaj: 'Plaj', doga: 'Doğa',
   restoran: 'Restoran', gece_hayati: 'Gece Hayatı',
   alisveris: 'Alışveriş', eglence: 'Eğlence',
+  // İngilizce kategori isimleri (backend TR_TO_EN dönüşümünden sonra geliyor)
+  historical: 'Tarihi Yer', beach: 'Plaj', nature: 'Doğa',
+  restaurant: 'Restoran', nightlife: 'Gece Hayatı',
+  shopping: 'Alışveriş', themepark: 'Eğlence',
+  museum: 'Müze', ruins: 'Tarihi Yer', gallery: 'Galeri',
+  cave: 'Mağara', waterfall: 'Şelale', park: 'Park',
+  activity: 'Aktivite', wellness: 'Wellness', beachclub: 'Beach Club',
+  family: 'Aile', religious: 'Dini Yer', mall: 'AVM', market: 'Çarşı',
 }
 
 
@@ -421,7 +430,134 @@ export default function Planner() {
         if (hasMuzekartChange === 'no')  { ctx.has_muzekart = false; setHasMuzekart(false) }
 
         const existingIds = plan.days.flatMap(d => d.activities).map(a => a.id)
-        const isAddIntent = t.includes('ekle') || t.includes('öner') || t.includes('istiyorum') || t.includes('daha fazla')
+        const isRemoveIntent = t.includes('çıkar') || t.includes('kaldır') || t.includes('istemiyorum') || t.includes('olmasın')
+        const isAddIntent =
+          t.includes('ekle') ||
+          t.includes('öner') ||
+          t.includes('istiyorum') ||
+          t.includes('daha fazla') ||
+          t.includes('göster')
+
+        // ── Tek kelime kategori → seçenek sun ──
+        const isSingleCategoryInput =
+          parsed.categories?.length > 0 &&
+          !isAddIntent &&
+          !isRemoveIntent &&
+          userText.trim().split(/\s+/).length <= 2
+
+        if (isSingleCategoryInput) {
+          const cat = parsed.categories[0]
+          const catLabel = CATEGORY_LABELS[cat] || cat
+          addAiMessage(
+            `${catLabel} için ne yapalım?\n` +
+            `• "${catLabel} ekle" — plana yeni ${catLabel} ekleyeyim\n` +
+            `• "Daha ucuz alternatifler" — bütçeye uygun plan yapayım\n` +
+            `• "Sadece ${catLabel}" — planı yeniden kurayım`
+          )
+          setLoading(false); return
+        }
+
+        // ── ÇIKAR / KALDIR: spesifik mekan çıkar, aynı kategoriden yenisi ekle ──
+        if (isRemoveIntent && parsed.locations?.length) {
+          const removeName = parsed.locations[0].name
+          const removeCategory = parsed.locations[0].category
+          const filteredDays = plan.days
+            .map(d => ({ ...d, activities: d.activities.filter(a => a.name !== removeName) }))
+            .filter(d => d.activities.length > 0)
+          const allActs = filteredDays.flatMap(d => d.activities)
+          const newTotalCost = allActs.reduce((s, a) => s + (a.price || 0), 0)
+          try {
+            const currentPlan = {
+              days: filteredDays, budget: plan.budget, duration: plan.duration,
+              title: plan.title, totalCost: newTotalCost, has_muzekart: ctx.has_muzekart,
+            }
+            const res = await planAdd({
+              current_plan: currentPlan,
+              category: removeCategory,
+              existing_ids: existingIds,
+              count: 1,
+              has_muzekart: ctx.has_muzekart || false,
+              budget_per_activity: ctx.budget ? ctx.budget / (ctx.days || 1) : null,
+            })
+            const updated = res.data.plan
+            const addedNames = res.data.added_names || []
+            if (updated?.days?.length > 0) {
+              applyPlan(updated)
+              addAiMessage(addedNames.length > 0
+                ? `${removeName} çıkarıldı, yerine ${addedNames[0]} eklendi.`
+                : `${removeName} plandan çıkarıldı.`)
+            } else {
+              setPlan(prev => ({ ...prev, days: filteredDays, totalCost: newTotalCost }))
+              addAiMessage(`${removeName} plandan çıkarıldı.`)
+            }
+          } catch {
+            setPlan(prev => ({ ...prev, days: filteredDays, totalCost: newTotalCost }))
+            addAiMessage(`${CATEGORY_LABELS[removeCategory] || removeCategory} kategorisi plandan çıkarıldı.`)
+          }
+          setLoading(false); return
+        }
+
+        // ── Daha ucuz: bütçeyi düşür ve mode=budget ile yeniden oluştur ──
+        const isCheaperRequest = t.includes('ucuz') || t.includes('ekonomik') || t.includes('uygun fiyat')
+        if (isCheaperRequest && !parsed.budget) {
+          const currentCost = plan.totalCost || 0
+          const cheaperBudget = Math.max(Math.round(currentCost * 0.7), 500)
+          const res = await planBuild(ctxToCollected({
+            budget: cheaperBudget,
+            mode: 'budget',
+            categories: ctx.categories.length > 0 ? ctx.categories : parsed.categories || [],
+          }))
+          const newPlan = res.data.plan
+          if (newPlan?.days?.length > 0) {
+            applyPlan(newPlan)
+            addAiMessage(`Plan daha uygun fiyatlı alternatiflerle güncellendi! Tahmini harcama: ${newPlan.totalCost} TL.`)
+          } else {
+            addAiMessage('Plan güncellenirken bir sorun oluştu.')
+          }
+          setLoading(false); return
+        }
+
+        // ── Daha pahalı / premium: bütçeyi artır ve mode=speed ile yeniden oluştur ──
+        const isExpensiveRequest =
+          t.includes('pahalı') || t.includes('premium') || t.includes('lüks') ||
+          t.includes('yükselt') || t.includes('daha iyi') || t.includes('üst segment')
+        if (isExpensiveRequest && !parsed.budget) {
+          const baseBudget = Math.max(ctx.budget || 0, plan.totalCost || 0, 1000)
+          const higherBudget = Math.round(baseBudget * 2)
+          const res = await planBuild(ctxToCollected({
+            budget: higherBudget,
+            mode: 'speed',
+            categories: ctx.categories.length > 0 ? ctx.categories : parsed.categories || [],
+          }))
+          const newPlan = res.data.plan
+          if (newPlan?.days?.length > 0) {
+            applyPlan(newPlan)
+            addAiMessage(`Plan daha premium alternatiflerle güncellendi! Tahmini harcama: ${newPlan.totalCost} TL.`)
+          } else {
+            addAiMessage('Plan güncellenirken bir sorun oluştu.')
+          }
+          setLoading(false); return
+        }
+
+        // ── MÜZEKART: aktiviteler aynı kalır, sadece fiyatlar güncellenir ──
+        if (hasMuzekartChange !== null) {
+          const hasMuzekart = ctx.has_muzekart
+          const updatedDays = plan.days.map(d => ({
+            ...d,
+            activities: d.activities.map(a => ({
+              ...a,
+              price: (hasMuzekart && a.muzekart) ? 0 : (a.original_price ?? a.price),
+            })),
+            day_cost: d.activities.reduce((s, a) =>
+              s + ((hasMuzekart && a.muzekart) ? 0 : (a.original_price ?? a.price)), 0),
+          }))
+          const totalCost = updatedDays.reduce((s, d) => s + d.day_cost, 0)
+          setPlan(prev => ({ ...prev, days: updatedDays, totalCost }))
+          addAiMessage(hasMuzekart
+            ? `Müzekart eklendi! Müzekart kabul eden mekanlar ücretsiz. Yeni toplam: ${totalCost} TL.`
+            : `Müzekart kaldırıldı. Yeni toplam: ${totalCost} TL.`)
+          setLoading(false); return
+        }
 
         // ── EKLE operasyonu: backend aktivite seçer + Dijkstra optimize eder ──
         if (isAddIntent && (parsed.categories?.length || parsed.locations?.length)) {
@@ -455,41 +591,7 @@ export default function Planner() {
           setLoading(false); return
         }
 
-        // ── Daha ucuz: bütçe değişmeden planı yeniden oluştur ──
-        const isCheaperRequest = t.includes('ucuz') || t.includes('ekonomik') || t.includes('uygun fiyat')
-        if (isCheaperRequest && !parsed.budget) {
-          const res = await planBuild(ctxToCollected())
-          const newPlan = res.data.plan
-          if (newPlan?.days?.length > 0) {
-            applyPlan(newPlan)
-            addAiMessage(`Plan bütçene uygun alternatiflerle güncellendi! Tahmini harcama: ${newPlan.totalCost} TL.`)
-          } else {
-            addAiMessage('Plan güncellenirken bir sorun oluştu.')
-          }
-          setLoading(false); return
-        }
-
-        // ── MÜZEKART: aktiviteler aynı kalır, sadece fiyatlar güncellenir ──
-        if (hasMuzekartChange !== null) {
-          const hasMuzekart = ctx.has_muzekart
-          const updatedDays = plan.days.map(d => ({
-            ...d,
-            activities: d.activities.map(a => ({
-              ...a,
-              price: (hasMuzekart && a.muzekart) ? 0 : (a.original_price ?? a.price),
-            })),
-            day_cost: d.activities.reduce((s, a) =>
-              s + ((hasMuzekart && a.muzekart) ? 0 : (a.original_price ?? a.price)), 0),
-          }))
-          const totalCost = updatedDays.reduce((s, d) => s + d.day_cost, 0)
-          setPlan(prev => ({ ...prev, days: updatedDays, totalCost }))
-          addAiMessage(hasMuzekart
-            ? `Müzekart eklendi! Müzekart kabul eden mekanlar ücretsiz. Yeni toplam: ${totalCost} TL.`
-            : `Müzekart kaldırıldı. Yeni toplam: ${totalCost} TL.`)
-          setLoading(false); return
-        }
-
-        // ── YENİDEN OLUŞTUR: gün/bütçe/sentiment/grup değişikliği ──
+        // ── YENİDEN OLUŞTUR: gün/bütçe/sentiment/grup/kategori değişikliği ──
         const needsRebuild =
           (parsed.duration_days && parsed.duration_days !== plan.duration) ||
           (parsed.budget && parsed.budget !== ctx.budget) ||
@@ -752,10 +854,7 @@ export default function Planner() {
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
-                onClick={() => {
-                  if (plan) localStorage.setItem('restore_plan', JSON.stringify(plan))
-                  navigate('/login?from=/planner')
-                }}
+                onClick={() => navigate('/login')}
                 className="text-xs font-bold bg-[#96C8C8] text-gray-900 px-4 py-1.5 rounded-full hover:bg-[#7DBCBC] transition-colors"
               >
                 Giriş Yap
@@ -781,9 +880,7 @@ export default function Planner() {
             <div className="flex items-center gap-2.5">
               <div className="relative">
                 <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
+                  <TravelMindMark className="w-4 h-4 text-white" />
                 </div>
                 <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#96C8C8] rounded-full border-2 border-white" />
               </div>
@@ -809,9 +906,7 @@ export default function Planner() {
                 >
                   {msg.role === 'ai' && (
                     <div className="w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                      </svg>
+                      <TravelMindMark className="w-3 h-3 text-white" />
                     </div>
                   )}
                   <div className="max-w-[85%]">
@@ -831,9 +926,7 @@ export default function Planner() {
             {loading && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-2">
                 <div className="w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center flex-shrink-0">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
+                  <TravelMindMark className="w-3 h-3 text-white" />
                 </div>
                 <div className="bg-gray-50 border border-gray-100 rounded-2xl rounded-bl-sm px-3">
                   <TypingIndicator />

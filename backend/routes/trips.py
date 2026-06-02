@@ -9,7 +9,8 @@ from database import get_db
 from models.trip import Trip
 from models.user import User
 from models.activity import Activity
-from services.nlp import parse_input
+from nlp.parser import parse_user_input as parse_input
+
 from services.budget import calculate_budget
 from services.auth_deps import get_current_user
 from services.chat_engine import ChatEngine
@@ -77,12 +78,11 @@ def plan_chat(request: PlanChatRequest):
             normalized_prefs = engine.session.to_normalized_prefs()
             plan = build_plan(collected, normalized_prefs)
             result["plan"] = plan
+            _engines.pop(session_id, None)
         except Exception as e:
             import traceback
             print("BUILD_PLAN HATASI:", traceback.format_exc())
             result["plan_error"] = str(e)
-        finally:
-            _engines.pop(session_id, None)
 
     return result
 
@@ -235,6 +235,7 @@ class PlanBuildRequest(BaseModel):
     age_groups: Optional[list] = []
     is_family_trip: Optional[bool] = False
     keywords: Optional[list] = []
+    mode: Optional[str] = "balanced"
 
 
 @router.post("/plan-build")
@@ -255,6 +256,7 @@ def plan_build_endpoint(request: PlanBuildRequest):
         "age_groups":      request.age_groups or [],
         "is_family_trip":  request.is_family_trip or False,
         "keywords":        request.keywords or [],
+        "mode":            request.mode or "balanced",
     }
     session = ConversationSession()
     session.collected = collected

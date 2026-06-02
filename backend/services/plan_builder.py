@@ -37,13 +37,27 @@ EN_TO_TR = {
     "themepark": "eglence", "family": "eglence", "wellness": "eglence",
 }
 
-TR_LABELS = {
-    "tarihi_yer": "Tarihi Yer", "plaj": "Plaj", "doga": "Doğa",
-    "restoran": "Restoran", "gece_hayati": "Gece Hayatı",
-    "alisveris": "Alışveriş", "eglence": "Eğlence",
+TR_TO_EN = {
+    "tarihi_yer": "historical",
+    "plaj":       "beach",
+    "doga":       "nature",
+    "restoran":   "restaurant",
+    "gece_hayati":"nightlife",
+    "alisveris":  "shopping",
+    "eglence":    "themepark",
 }
 
 DAY_THEMES = {
+    "historical": "Tarihi Keşif", "ruins": "Tarihi Keşif", "museum": "Tarihi Keşif",
+    "gallery": "Tarihi Keşif", "religious": "Tarihi Keşif",
+    "beach": "Plaj ve Deniz", "beachclub": "Plaj ve Deniz",
+    "nature": "Doğa Macerası", "waterfall": "Doğa Macerası",
+    "cave": "Doğa Macerası", "park": "Doğa Macerası", "activity": "Doğa Macerası",
+    "restaurant": "Gastronomi Günü",
+    "nightlife": "Gece Hayatı",
+    "shopping": "Alışveriş ve Keşif", "mall": "Alışveriş ve Keşif", "market": "Alışveriş ve Keşif",
+    "themepark": "Eğlence Günü", "family": "Eğlence Günü", "wellness": "Eğlence Günü",
+    # Türkçe fallback (eski DB kayıtları için)
     "tarihi_yer": "Tarihi Keşif", "plaj": "Plaj ve Deniz",
     "doga": "Doğa Macerası", "restoran": "Gastronomi Günü",
     "gece_hayati": "Gece Hayatı", "alisveris": "Alışveriş ve Keşif",
@@ -51,6 +65,14 @@ DAY_THEMES = {
 }
 
 VISIT_DURATIONS = {
+    "historical": 90, "ruins": 90, "museum": 90, "gallery": 60, "religious": 45,
+    "beach": 180, "beachclub": 180,
+    "nature": 120, "waterfall": 90, "cave": 90, "park": 90, "activity": 120,
+    "restaurant": 75,
+    "nightlife": 120,
+    "shopping": 90, "mall": 90, "market": 60,
+    "themepark": 180, "family": 120, "wellness": 90,
+    # Türkçe fallback
     "tarihi_yer": 90, "plaj": 180, "doga": 120,
     "restoran": 75, "gece_hayati": 120, "alisveris": 90, "eglence": 120,
 }
@@ -93,7 +115,7 @@ def _dominant_category(activities: list) -> str:
     for a in activities:
         cat = a.get("category", "")
         counts[cat] = counts.get(cat, 0) + 1
-    return max(counts, key=counts.get) if counts else "tarihi_yer"
+    return max(counts, key=counts.get) if counts else "historical"
 
 
 MAX_DAY_MINUTES = 660   # 09:00 → 20:00
@@ -119,7 +141,7 @@ def _calc_start_times(activities: list) -> list:
 
 
 def _fill_day(pool: list, forced_ids: set, daily_budget: float,
-              used_ids: set, negative_tr_cats: set) -> list:
+              used_ids: set, negative_cats: set) -> list:
     """
     Zaman ve bütçeye sığan aktiviteleri seç.
     Forced aktiviteler (kullanıcının yazdıkları) her zaman dahil edilir.
@@ -134,7 +156,7 @@ def _fill_day(pool: list, forced_ids: set, daily_budget: float,
 
         is_forced = act["id"] in forced_ids
 
-        if not is_forced and act["category"] in negative_tr_cats:
+        if not is_forced and act["category"] in negative_cats:
             continue
 
         act_time = VISIT_DURATIONS.get(act["category"], 90) + 20
@@ -172,16 +194,18 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
     has_muzekart   = collected.get("has_muzekart") or False
     max_candidates = duration_days * MAX_PER_DAY
 
-    # ── FIX 1: Negatif sentiment → dışlanacak Türkçe DB kategorileri ──
+    # Negatif sentiment → dışlanacak kategoriler (hem EN hem TR)
     sentiment_vector = collected.get("sentiment_vector", {})
+    negative_en_cats = set()
     negative_tr_cats = set()
     for nlp_cat, score in sentiment_vector.items():
         if score < 0:
+            negative_en_cats.add(nlp_cat)
             tr = EN_TO_TR.get(nlp_cat)
             if tr:
                 negative_tr_cats.add(tr)
 
-    # ── FIX 2: Lokasyonlar → DB'de bul, plana zorla ekle ──
+    # Lokasyonlar → DB'de bul, plana zorla ekle
     locations = collected.get("locations", [])
     forced_activities = []
     forced_ids = set()
@@ -193,7 +217,7 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
                 forced_activities.append({
                     "id":             db_act["id"],
                     "name":           db_act["name"],
-                    "category":       db_act["category"],
+                    "category":       TR_TO_EN.get(db_act["category"], db_act["category"]),
                     "price":          _effective_price(db_act, has_muzekart),
                     "original_price": db_act.get("price") or 0,
                     "muzekart":       bool(db_act.get("muzekart")),
@@ -219,7 +243,8 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
         "group_type":       collected.get("group_type"),
     }
 
-    hybrid_result = hybrid_recommend(parsed_for_hybrid, normalized_prefs)
+    mode = collected.get("mode", "balanced")
+    hybrid_result = hybrid_recommend(parsed_for_hybrid, normalized_prefs, mode=mode)
     balanced = hybrid_result.get("balanced_recommendations", [])
     budget_friendly = hybrid_result.get("budget_friendly_package", [])
 
@@ -251,12 +276,13 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
         db_act = db_map.get(rec["id"])
         if not db_act:
             continue
-        if db_act["category"] in negative_tr_cats:
+        en_cat = TR_TO_EN.get(db_act["category"], db_act["category"])
+        if en_cat in negative_en_cats or db_act["category"] in negative_tr_cats:
             continue
         enriched.append({
             "id":             db_act["id"],
             "name":           db_act["name"],
-            "category":       db_act["category"],
+            "category":       en_cat,
             "price":          _effective_price(db_act, has_muzekart),
             "original_price": db_act.get("price") or 0,
             "muzekart":       bool(db_act.get("muzekart")),
@@ -276,7 +302,8 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
         for db_act in all_db:
             if db_act["id"] in existing_ids:
                 continue
-            if db_act["category"] in negative_tr_cats:
+            en_cat_fb = TR_TO_EN.get(db_act["category"], db_act["category"])
+            if en_cat_fb in negative_en_cats or db_act["category"] in negative_tr_cats:
                 continue
             eff = _effective_price(db_act, has_muzekart)
             if daily_budget > 0 and eff > 0 and eff > daily_budget * 1.1:
@@ -284,7 +311,7 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
             enriched.append({
                 "id":             db_act["id"],
                 "name":           db_act["name"],
-                "category":       db_act["category"],
+                "category":       en_cat_fb,
                 "price":          eff,
                 "original_price": db_act.get("price") or 0,
                 "muzekart":       bool(db_act.get("muzekart")),
@@ -305,7 +332,7 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
     days = []
 
     for d in range(duration_days):
-        day_acts = _fill_day(final_pool, forced_ids, daily_budget, used_ids, negative_tr_cats)
+        day_acts = _fill_day(final_pool, forced_ids, daily_budget, used_ids, negative_en_cats)
         if not day_acts:
             break
 
@@ -350,6 +377,18 @@ def build_plan(collected: dict, normalized_prefs: dict) -> dict:
     dominant_overall = _dominant_category(all_acts)
 
     PLAN_TITLES = {
+        "historical": f"{duration_days} Günlük Tarihi Antalya Turu",
+        "ruins":      f"{duration_days} Günlük Tarihi Antalya Turu",
+        "museum":     f"{duration_days} Günlük Tarihi Antalya Turu",
+        "beach":      f"{duration_days} Günlük Antalya Plaj Tatili",
+        "nature":     f"{duration_days} Günlük Doğa Kaçamağı",
+        "restaurant": f"{duration_days} Günlük Gastronomi Turu",
+        "nightlife":  f"{duration_days} Günlük Eğlence Tatili",
+        "shopping":   f"{duration_days} Günlük Keşif Turu",
+        "themepark":  f"{duration_days} Günlük Eğlenceli Tatil",
+        "family":     f"{duration_days} Günlük Aile Tatili",
+        "activity":   f"{duration_days} Günlük Macera Tatili",
+        # Türkçe fallback
         "tarihi_yer": f"{duration_days} Günlük Tarihi Antalya Turu",
         "plaj":       f"{duration_days} Günlük Antalya Plaj Tatili",
         "doga":       f"{duration_days} Günlük Doğa Kaçamağı",
@@ -390,7 +429,7 @@ def add_to_plan(current_plan: dict, db_category: str, existing_ids: list,
         new_acts.append({
             "id":             db_act["id"],
             "name":           db_act["name"],
-            "category":       db_act["category"],
+            "category":       TR_TO_EN.get(db_act["category"], db_act["category"]),
             "price":          _effective_price(db_act, has_muzekart),
             "original_price": db_act.get("price") or 0,
             "muzekart":       bool(db_act.get("muzekart")),

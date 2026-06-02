@@ -13,12 +13,10 @@ AKIŞ:
 from nlp.parser import parse_user_input, ConversationSession
 from nlp.recommender import get_recommendations, hybrid_recommend, CATEGORY_LABELS_TR
 
+VAGUE_BUDGET_WORDS = ["limitsiz", "sınırsız", "fark etmez", "önemli değil", "bol"]
+
 
 class ChatEngine:
-    """
-    Tek kullanıcı oturumu için sohbet motoru.
-    Her kullanıcıya ayrı bir ChatEngine örneği oluştur.
-    """
 
     GREETING_RESPONSE = (
         "Merhaba! Antalya gezin için sana özel aktiviteler önerebilirim. "
@@ -54,27 +52,15 @@ class ChatEngine:
     def __init__(self):
         self.session = ConversationSession()
         self._muzekart_asked = False
+        self._waiting_for_budget = False
 
     def handle_message(self, user_text: str) -> dict:
-        """
-        Kullanıcının bir mesajını işler ve yanıt üretir.
-
-        Returns:
-            {
-                "reply": str,
-                "recommendations": list | None,
-                "budget_plan": dict | None,
-                "budget_swaps": list,
-                "state": "greeting" | "need_budget" | "ready",
-                "session_summary": dict,
-            }
-        """
         text_lower = user_text.lower().strip()
 
         # ── İlk mesaj sadece selamlama mı? ──────────────────────────────
         is_only_greeting = (
             self.session.turn_count == 0
-            and any(t in text_lower for t in self.GREETING_TRIGGERS)
+            and any(t == text_lower.strip() or text_lower.strip().startswith(t + " ") for t in self.GREETING_TRIGGERS)
             and len(text_lower.split()) <= 4
         )
 
@@ -91,11 +77,18 @@ class ChatEngine:
             }
 
         # ── Normal mesaj: parse et, session'a ekle ───────────────────────
-        parsed = parse_user_input(user_text)
+        parsed = parse_user_input(user_text, budget_context=self._waiting_for_budget)
+        self._waiting_for_budget = False
+
+        # Limitsiz bütçe kontrolü
+        if any(w in text_lower for w in VAGUE_BUDGET_WORDS):
+            parsed["budget"] = 50000
+
         self.session.update(parsed)
 
         # ── Bütçe hâlâ yok → tek soru sor ──────────────────────────────
         if self.session.collected["budget"] is None:
+            self._waiting_for_budget = True
             ack = self._acknowledge_what_we_know()
             reply = f"{ack} {self.BUDGET_QUESTION}" if ack else self.BUDGET_QUESTION
             return {
@@ -196,16 +189,18 @@ class ChatEngine:
         budget_raw = self.session.collected["budget"] or 0
         days = self.session.collected["duration_days"]
         days_part = f", {days} günlük gezin" if days else ""
+        budget_display = "limitsiz" if budget_raw >= 50000 else f"{budget_raw} TL"
 
-        reply = self.READY_RESPONSE_TEMPLATE.format(
-            budget=budget_raw,
-            days_part=days_part,
+        reply = (
+            f"Harika, sana uygun aktiviteleri buldum! "
+            f"Bütçen ({budget_display}){days_part} için "
+            f"planını sağ panelde inceleyebilirsin."
         )
 
-        # Bütçe uyarısı (müzekart varsa hesaplama tam fiyatla yapıldı, uyarıyı gösterme)
+        # Bütçe uyarısı (müzekart varsa ve bütçe limitsiz değilse gösterme)
         has_muzekart = self.session.collected.get("has_muzekart", False)
         budget_plan = result.get("budget_plan")
-        if budget_plan and not has_muzekart:
+        if budget_plan and not has_muzekart and budget_raw < 50000:
             if budget_plan["status"] == "over_budget":
                 reply += (
                     f"\n\n⚠️ Önerilen aktivitelerin toplam maliyeti "
@@ -239,5 +234,6 @@ class ChatEngine:
         return None
 
     def reset(self):
-        """Oturumu sıfırla (yeni kullanıcı veya yeni gezi)."""
         self.session = ConversationSession()
+        self._waiting_for_budget = False
+        self._muzekart_asked = False

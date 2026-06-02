@@ -231,6 +231,28 @@ ACTIVITY_KEYWORDS = {
     "aile":             "family",
     "çocuklu":          "family",
     "çocukla":          "family",
+
+    # Intent kalıpları — kategori yok, sadece intent tespiti için
+    "daha fazla":       None,
+    "ekle":             None,
+    "öner":             None,
+    "daha ucuz":        None,
+    "alternatif":       None,
+}
+
+# Çok kelimeli öneri kalıpları — tam cümle eşleştirme
+SUGGESTION_PATTERNS = {
+    "daha fazla restoran":  "restaurant",
+    "restoran ekle":        "restaurant",
+    "yemek ekle":           "restaurant",
+    "gece hayatı öner":     "nightlife",
+    "tarihi mekan ekle":    "historical",
+    "plaj aktivitesi":      "beach",
+    "plaj ekle":            "beach",
+    "doğa ekle":            "nature",
+    "alışveriş ekle":       "shopping",
+    "müze ekle":            "museum",
+    "aktivite ekle":        "activity",
 }
 
 GROUP_KEYWORDS = {
@@ -491,7 +513,7 @@ class ConversationSession:
         )
 
     def to_normalized_prefs(self) -> dict:
-        from nlp.normalizer import get_budget_level
+        from nlp.normalizer import get_budget_level, get_affordable_categories, BUDGET_CATEGORY_BOOST
 
         budget_raw = self.collected["budget"] or 0
         budget_level, budget_score = get_budget_level(budget_raw)
@@ -505,24 +527,55 @@ class ConversationSession:
             "shopping", "museum", "beach", "family",
             "cave", "waterfall", "park", "ruins", "activity",
             "wellness", "themepark", "beachclub",
-        ]       
-        # Alt kategorileri ana kategoriye eşle (ruins→historical, cave→nature vb.)
+        ]
+
         SUBCAT_MAP = {
             "gallery":   "historical",
             "religious": "historical",
             "mall":      "shopping",
             "market":    "shopping",
         }
+
+        GROUP_BOOST = {
+            "family":  ["family", "nature", "museum", "beach", "themepark"],
+            "couple":  ["restaurant", "nature", "historical", "wellness"],
+            "solo":    ["historical", "museum", "nature"],
+            "friends": ["nightlife", "restaurant", "beach", "shopping", "activity", "nature"],
+        }
+
+        group = self.collected["group_type"] or "solo"
+
+        # 1. Explicit kategoriler
         interest_vector = {cat: 0 for cat in all_cats}
         for cat in self.collected["categories"]:
             mapped = SUBCAT_MAP.get(cat, cat)
             if mapped in interest_vector:
                 interest_vector[mapped] = 1
 
+        # 2. Group boost — sadece kullanıcı hiç kategori belirtmemişse uygula
+        has_explicit = any(v >= 1 for v in interest_vector.values())
+        if not has_explicit:
+            for cat in GROUP_BOOST.get(group, []):
+                if cat in interest_vector:
+                    interest_vector[cat] = max(interest_vector[cat], 1)
+
+        # 3. Budget boost — sadece hiç kategori yoksa uygula
+        if not has_explicit:
+            for cat in BUDGET_CATEGORY_BOOST.get(budget_level, []):
+                if cat in interest_vector and interest_vector[cat] == 0:
+                    interest_vector[cat] = 0.3
+
+        # 4. Pahalı kategorileri zayıflat
+        affordable_cats = get_affordable_categories(budget_raw)
+        for cat in all_cats:
+            if cat not in affordable_cats and interest_vector.get(cat, 0) > 0:
+                interest_vector[cat] = round(interest_vector[cat] * 0.6, 2)
+
+        # 5. Negatif sentiment uygula
         for cat, score in self.collected["sentiment_vector"].items():
             mapped = SUBCAT_MAP.get(cat, cat)
             if mapped in interest_vector and score < 0:
-                interest_vector[mapped] = 0
+                interest_vector[mapped] = -1
 
         travel_style_map = {
             "family":  "cultural",
@@ -530,7 +583,6 @@ class ConversationSession:
             "solo":    "cultural",
             "friends": "entertainment",
         }
-        group = self.collected["group_type"] or "solo"
         travel_style = travel_style_map.get(group, "balanced")
 
         return {
@@ -741,11 +793,10 @@ def build_sentiment_vector(text: str) -> dict:
 # ANA PARSE FONKSİYONU
 # ──────────────────────────────────────────
 
-def parse_user_input(text: str) -> dict:
+def parse_user_input(text: str, budget_context: bool = False) -> dict:
     """
     Kullanıcının tek bir mesajını parse eder.
-
-    v2: group_type_explicit flag eklendi.
+    budget_context=True ise sadece bütçe bekleniyor (sayısal değerleri bütçe olarak yorumla).
     """
     text_lower = text.lower()
 
@@ -777,7 +828,7 @@ def parse_user_input(text: str) -> dict:
     found_categories = []
     for keyword, category in sorted(ACTIVITY_KEYWORDS.items(), key=lambda x: -len(x[0])):
         if keyword in text_lower:
-            if category not in found_categories:
+            if category is not None and category not in found_categories:
                 found_categories.append(category)
             if keyword not in result["keywords"]:
                 result["keywords"].append(keyword)
@@ -800,7 +851,13 @@ def parse_user_input(text: str) -> dict:
     result["locations"] = found_locations
 
     # Bütçe, süre, grup
-    result["budget"] = extract_budget(text)
+    # budget_context=True ise kısa sayısal yanıtları bütçe olarak da dene
+    budget = extract_budget(text)
+    if budget is None and budget_context:
+        m = re.search(r'\b(\d{3,6})\b', text)
+        if m:
+            budget = int(m.group(1))
+    result["budget"] = budget
     result["duration_days"] = extract_duration(text)
 
     group_type, explicit = extract_group_type(text)
@@ -808,8 +865,7 @@ def parse_user_input(text: str) -> dict:
     result["group_type_explicit"] = explicit
 
     result["age_groups"] = extract_age_groups(text)
-    import re as _re
-    parts = _re.split(r'[,،;]', text)
+    parts = re.split(r'[,،;]', text)
     combined_sv = {}
     for part in parts:
         part_sv = build_sentiment_vector(part)
@@ -825,6 +881,11 @@ def parse_user_input(text: str) -> dict:
 
     if result["is_family_trip"] and "family" not in result["categories"]:
         result["categories"].insert(0, "family")
+
+    # Çok kelimeli pattern eşleştirme (tek kelime yakalanmayan ifadeler için)
+    for pattern, cat in sorted(SUGGESTION_PATTERNS.items(), key=lambda x: -len(x[0])):
+        if pattern in text_lower and cat and cat not in result["categories"]:
+            result["categories"].append(cat)
 
     return result
 
