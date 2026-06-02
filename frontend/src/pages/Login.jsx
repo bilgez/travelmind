@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { login, register } from '../api/index'
 
@@ -17,6 +17,9 @@ const LOGIN_VIDEOS = [
 ]
 export default function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const from = new URLSearchParams(location.search).get('from') || '/plans'
+  useEffect(() => { document.title = 'Giriş Yap | TravelMind' }, [])
   const [isLogin, setIsLogin] = useState(true)
   const [form, setForm] = useState({ email: '', username: '', password: '' })
   const [error, setError] = useState('')
@@ -43,7 +46,7 @@ export default function Login() {
         localStorage.setItem('token', res.data.access_token)
         localStorage.setItem('username', res.data.username)
         localStorage.setItem('user_id', res.data.user_id)
-        navigate('/plans')
+        navigate(from)
       } else {
         await register({ email: form.email, username: form.username, password: form.password })
         setIsLogin(true)

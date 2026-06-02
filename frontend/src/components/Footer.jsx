@@ -31,9 +31,21 @@ export default function Footer() {
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Kategoriler</p>
             <ul className="space-y-2.5">
-              {['Tarihi Yerler', 'Plajlar', 'Doğa & Aktivite', 'Restoranlar', 'Gece Hayatı'].map((cat, i) => (
+              {[
+                { label: 'Tarihi Yerler',   key: 'tarihi_yer' },
+                { label: 'Plajlar',         key: 'plaj' },
+                { label: 'Doğa & Aktivite', key: 'doga' },
+                { label: 'Restoranlar',     key: 'restoran' },
+                { label: 'Gece Hayatı',     key: 'gece_hayati' },
+              ].map((cat, i) => (
                 <li key={i}>
-                  <button onClick={() => navigate('/')} className="text-sm text-gray-500 hover:text-white transition-colors">{cat}</button>
+                  <button
+                    onClick={() => {
+                      sessionStorage.setItem('landing_cat', cat.key)
+                      navigate('/')
+                    }}
+                    className="text-sm text-gray-500 hover:text-white transition-colors"
+                  >{cat.label}</button>
                 </li>
               ))}
             </ul>

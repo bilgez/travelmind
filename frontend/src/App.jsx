@@ -7,6 +7,7 @@ import RoutePage from './pages/Route'
 import MyPlans from './pages/MyPlans'
 import About from './pages/About'
 import Profile from './pages/Profile'
+import NotFound from './pages/NotFound'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -32,6 +33,7 @@ function App() {
         <Route path="/plans" element={<MyPlans />} />
         <Route path="/about" element={<About />} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   )

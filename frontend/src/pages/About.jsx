@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getAllActivities } from '../api/index'
 import { motion, AnimatePresence } from 'framer-motion'
 import Navbar, { BRAND } from '../components/Navbar'
 import Footer from '../components/Footer'
@@ -70,6 +71,14 @@ function Accordion({ q, a }) {
 
 export default function About() {
   const navigate = useNavigate()
+  const [activityCount, setActivityCount] = useState(65)
+  useEffect(() => { document.title = 'Hakkında | TravelMind' }, [])
+  useEffect(() => {
+    getAllActivities().then(res => {
+      const data = res.data.activities || res.data
+      if (Array.isArray(data)) setActivityCount(data.length)
+    }).catch(() => {})
+  }, [])
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
@@ -162,7 +171,7 @@ export default function About() {
             { title: 'Türkçe anlıyor', body: 'İngilizce bilmene gerek yok. Türkçe yazdığın cümleden süreyi, bütçeyi ve tercihlerini çıkarır.' },
             { title: 'Bütçeni aşmıyor', body: 'Her aktivitenin gerçek fiyatıyla çalışır. Toplam maliyet her adımda güncel olarak gösterilir.' },
             { title: 'Zaman kaybettirmiyor', body: 'Hangi mekanların birbirine yakın olduğunu bilir. Gereksiz gidip gelmeler olmadan optimal rota çizer.' },
-            { title: '65\'ten fazla mekan', body: 'Tarihi alanlar, plajlar, doğa, restoranlar, gece hayatı ve alışveriş — Antalya\'nın tamamı kapsanıyor.' },
+            { title: `${activityCount}'den fazla mekan`, body: 'Tarihi alanlar, plajlar, doğa, restoranlar, gece hayatı ve alışveriş — Antalya\'nın tamamı kapsanıyor.' },
             { title: 'Hesap gerektirmiyor', body: 'Kayıt olmadan, form doldurmadan hemen başlarsın. Bir cümle yaz, planın hazır.' },
           ].map((f, i) => (
             <motion.div key={i} {...fadeUp(i * 0.06)} className="flex gap-6 items-start py-2 border-b border-gray-50 last:border-0">

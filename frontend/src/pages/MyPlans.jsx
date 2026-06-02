@@ -314,10 +314,13 @@ function Card({ plan, idx, onDelete, onOpen, onToggleArchive, onRename }) {
 /* ─── Main page ─── */
 export default function MyPlans() {
   const navigate = useNavigate()
+  useEffect(() => { document.title = 'Planlarım | TravelMind' }, [])
   const token = localStorage.getItem('token')
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [errorToast, setErrorToast] = useState('')
+  const showError = (msg) => { setErrorToast(msg); setTimeout(() => setErrorToast(''), 3000) }
   useEffect(() => {
     if (!token) { setLoading(false); return }
     getMyPlans()
@@ -330,14 +333,14 @@ export default function MyPlans() {
     try {
       await deletePlan(id)
       setPlans(p => p.filter(x => x.id !== id))
-    } catch { /* ignore */ }
+    } catch { showError('Plan silinemedi, tekrar dene.') }
   }
 
   const handleRename = async (id, title) => {
     try {
       await updatePlanStatus(id, { title })
       setPlans(p => p.map(x => x.id === id ? { ...x, title } : x))
-    } catch { /* ignore */ }
+    } catch { showError('İsim güncellenemedi, tekrar dene.') }
   }
 
   const handleToggle = async id => {
@@ -346,7 +349,7 @@ export default function MyPlans() {
     try {
       await updatePlanStatus(id, { status: newStatus })
       setPlans(p => p.map(x => x.id === id ? { ...x, status: newStatus } : x))
-    } catch { /* ignore */ }
+    } catch { showError('Durum güncellenemedi, tekrar dene.') }
   }
 
   const handleOpen = plan => { localStorage.setItem('restore_plan', JSON.stringify(plan)); navigate('/planner') }
@@ -360,6 +363,11 @@ export default function MyPlans() {
 
   return (
     <div className="min-h-screen bg-[#F8F8F6]">
+      {errorToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white text-sm font-medium px-5 py-3 rounded-full shadow-lg">
+          {errorToast}
+        </div>
+      )}
 
       <Navbar />
 

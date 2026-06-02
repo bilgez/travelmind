@@ -151,6 +151,7 @@ function UserMenu({ navigate }) {
 export default function RoutePage() {
   const navigate = useNavigate()
   const location = useLocation()
+  useEffect(() => { document.title = 'Rotayı Gör | TravelMind' }, [])
   const navLink = (path) => `text-sm font-medium transition-colors ${location.pathname === path ? '' : 'text-gray-400 hover:text-gray-700'}`
   const [activities] = useState(() => initStorage().activities)
   const [dayPlan] = useState(() => initStorage().dayPlan)
@@ -305,6 +306,25 @@ export default function RoutePage() {
       setSaving(false)
     }
   }
+
+  if (dayPlan.length === 0) return (
+    <div className="h-screen bg-white flex flex-col items-center justify-center px-6 text-center">
+      <svg className="w-16 h-16 mb-6 text-[#96C8C8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6-10l6-3m0 13l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 4V9" />
+      </svg>
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">Henüz bir planın yok</h1>
+      <p className="text-gray-400 text-sm mb-8 max-w-xs leading-relaxed">
+        Planlayıcı'da bir gezi oluştur, ardından "Rotayı Gör" butonuna bas.
+      </p>
+      <button
+        onClick={() => navigate('/planner')}
+        className="px-6 py-3 rounded-full text-sm font-semibold text-white transition-colors"
+        style={{ background: '#96C8C8' }}
+      >
+        Planlayıcıya Git
+      </button>
+    </div>
+  )
 
   return (
     <div className="h-screen bg-stone-50 flex flex-col overflow-hidden">

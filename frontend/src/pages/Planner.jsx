@@ -270,6 +270,7 @@ function PlannerUserMenu({ navigate }) {
 export default function Planner() {
   const navigate = useNavigate()
   const location = useLocation()
+  useEffect(() => { document.title = 'Planlayıcı | TravelMind' }, [])
   const navLink = (path) => `text-sm font-medium transition-colors ${location.pathname === path ? '' : 'text-gray-400 hover:text-gray-700'}`
   const messagesEndRef = useRef(null)
   const dayRefs = useRef({})
@@ -751,7 +752,10 @@ export default function Planner() {
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
-                onClick={() => navigate('/login')}
+                onClick={() => {
+                  if (plan) localStorage.setItem('restore_plan', JSON.stringify(plan))
+                  navigate('/login?from=/planner')
+                }}
                 className="text-xs font-bold bg-[#96C8C8] text-gray-900 px-4 py-1.5 rounded-full hover:bg-[#7DBCBC] transition-colors"
               >
                 Giriş Yap

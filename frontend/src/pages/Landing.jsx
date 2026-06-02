@@ -345,9 +345,14 @@ function MapMockup() {
 
 export default function Landing() {
   const navigate = useNavigate()
+  useEffect(() => { document.title = 'TravelMind — Antalya Gezi Planlayıcı' }, [])
   const [scrolled, setScrolled] = useState(false)
   const [activities, setActivities] = useState([])
-  const [activeCategory, setActiveCategory] = useState('all')
+  const [activeCategory, setActiveCategory] = useState(() => {
+    const cat = sessionStorage.getItem('landing_cat')
+    if (cat) sessionStorage.removeItem('landing_cat')
+    return cat || 'all'
+  })
   const [selectedActivity, setSelectedActivity] = useState(null)
   const [routeList, setRouteList] = useState([])
   const [loading, setLoading] = useState(true)
@@ -396,6 +401,12 @@ export default function Landing() {
     window.addEventListener('scroll', handler, { passive: true })
     return () => window.removeEventListener('scroll', handler)
   }, [])
+
+  useEffect(() => {
+    if (activeCategory !== 'all') {
+      setTimeout(() => discoverRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const fetchWithRetry = (attempt = 1) => {
