@@ -168,7 +168,7 @@ export default function About() {
 
         <div className="space-y-6">
           {[
-            { title: 'Türkçe anlıyor', body: 'İngilizce bilmene gerek yok. Türkçe yazdığın cümleden süreyi, bütçeyi ve tercihlerini çıkarır.' },
+            { title: 'Türkçe anlıyor', body: 'Türkçe yazdığın mesajlardan süreyi, bütçeyi ve tercihlerini planlar.' },
             { title: 'Bütçeni aşmıyor', body: 'Her aktivitenin gerçek fiyatıyla çalışır. Toplam maliyet her adımda güncel olarak gösterilir.' },
             { title: 'Zaman kaybettirmiyor', body: 'Hangi mekanların birbirine yakın olduğunu bilir. Gereksiz gidip gelmeler olmadan optimal rota çizer.' },
             { title: `${activityCount}'den fazla mekan`, body: 'Tarihi alanlar, plajlar, doğa, restoranlar, gece hayatı ve alışveriş — Antalya\'nın tamamı kapsanıyor.' },
