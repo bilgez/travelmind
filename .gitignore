@@ -212,3 +212,43 @@ dist/
 
 # Database files
 *.db
+# ==== Secrets — NEVER commit these ====
+.env
+.env.local
+*.env
+!.env.example
+
+# ==== Python (backend) ====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Local dev databases (if any sqlite files sneak in)
+*.db
+*.sqlite3
+
+# ==== Node / Vite (frontend) ====
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# ==== Editor / OS ====
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# ==== Docker ====
+# (keep Dockerfiles and docker-compose.yml — only ignore runtime artifacts if any)

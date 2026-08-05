@@ -1,22 +1,52 @@
-version: '3.8'
-
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: travelmind_db
+  db:
+    image: postgres:16-alpine
+    container_name: travelmind-db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: travelmind
-      POSTGRES_PASSWORD: travelmind_password
-      POSTGRES_DB: travelmind_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-12345}
+      POSTGRES_DB: travelmind
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - travelmind-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U travelmind"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: travelmind-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      # inside Docker's network, the db is reached by service name "db", not "localhost"
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-12345}@db:5432/travelmind
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: travelmind-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
 
 volumes:
-  postgres_data:
+  travelmind-db-data:
