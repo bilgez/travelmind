@@ -1,129 +1,79 @@
-# TravelMind
-**NLP Tabanlı Akıllı Seyahat Planlama Sistemi**
-Türk Hava Kurumu Üniversitesi | 2025-2026 Güz Dönemi
+# TravelMind — Yapay Zeka Destekli Seyahat Planlayıcı
 
----
+Kullanıcının doğal dilde yazdığı tek bir cümleye göre (bütçe, gün sayısı, ilgi alanları) kişiselleştirilmiş, gün gün optimize edilmiş bir Antalya gezi planı oluşturan yapay zeka destekli bir seyahat planlayıcı.
 
-## Projeyi Çalıştırma
+Bu proje, [Bilge Zerda Keklik](https://github.com/bilgez) tarafından bir ekip arkadaşıyla birlikte geliştirilen bir bitirme projesidir.
 
-### Gereksinimler
-- [Python 3.10+](https://www.python.org/downloads/) — kurulumda **"Add to PATH"** seçeneğini işaretle
-- [Node.js 18+](https://nodejs.org/)
-- [PostgreSQL 18](https://www.postgresql.org/download/windows/)
+## Ekran Görüntüleri
 
----
+### Ana Sayfa
+![Ana Sayfa](docs/screenshots/01-anasayfa.png)
 
-### Adım 1 — Repo'yu çek
+### Sohbet Tabanlı Planlayıcı
+Kullanıcı bütçe, süre ve ilgi alanlarını doğal dille yazıyor; sistem gün gün bir program oluşturuyor.
+![Plan Oluşturma](docs/screenshots/02-plan-olusturma.png)
+
+### Harita Üzerinde Optimize Rota
+Her gün ayrı renkte, mekanlar arası mesafe ve süre bilgisiyle birlikte haritada gösteriliyor.
+![Rota ve Harita](docs/screenshots/03-rota-harita.png)
+
+### Otomatik Rota Optimizasyonu
+![Optimize Rota](docs/screenshots/04-giris
+.png)
+
+## Özellikler
+
+- **Doğal dil ile planlama** — "3 günlük tarihi tur, 2000 TL bütçe, çift kişi" gibi tek bir cümleden yola çıkarak plan oluşturma
+- **Yapay zeka destekli öneri sistemi** — bütçe, süre ve ilgi alanına göre mekan önerisi
+- **Otomatik rota optimizasyonu** — günlük programı coğrafi olarak en verimli sırayla düzenleme
+- **Google Maps entegrasyonu** — rotayı ve durakları harita üzerinde görselleştirme
+- **JWT tabanlı kullanıcı hesapları** — planları kaydetme ve sonradan düzenleme
+- **65 gerçek Antalya mekanı** — tarihi yerler, plajlar, restoranlar, doğa noktaları ve daha fazlası, kategorilere ayrılmış veri seti
+
+## Teknolojiler
+
+**Backend:** FastAPI · PostgreSQL · SQLAlchemy · JWT (python-jose) · Docker
+**Frontend:** React (Vite) · Tailwind CSS · Google Maps API · Framer Motion
+**Makine Öğrenmesi:** scikit-learn tabanlı öneri modeli
+**Altyapı:** Docker Compose ile tam konteynerleştirilmiş geliştirme ortamı (backend + PostgreSQL + frontend)
+
+## Ekip Katkısı
+
+| Kişi | Katkı |
+| **Zehra Timurağaoğlu** |
+| **Bilge Zerda Keklik** | Backend geliştirme (FastAPI, veritabanı tasarımı), frontend geliştirme (React), mekan veri setinin oluşturulması ve düzenlenmesi, ML modelinin backend'e entegrasyonu |
+| Ekip arkadaşım | Öneri sisteminin makine öğrenmesi modelinin eğitilmesi |
+
+## Proje Yapısı
+
+```
+travelmind/
+├── backend/          # FastAPI uygulaması
+│   ├── models/        # SQLAlchemy modelleri
+│   ├── routes/         # API endpoint'leri
+│   ├── services/      # İş mantığı
+│   ├── nlp/            # Doğal dil işleme / öneri mantığı
+│   └── data/            # Mekan veri seti (JSON)
+├── frontend/         # React (Vite) uygulaması
+│   └── src/
+│       ├── components/
+│       ├── pages/
+│       └── api/
+└── docker-compose.yml
+```
+
+## Yerel Kurulum
+
+Docker ile:
 
 ```bash
 git clone https://github.com/bilgez/travelmind.git
 cd travelmind
-git checkout bilgez
+docker-compose up --build
 ```
 
-### Adım 2 — PostgreSQL'de veritabanı oluştur
-
-```sql
-CREATE DATABASE travelmind;
-```
-
-### Adım 3 — Backend .env dosyasını oluştur
-
-```bash
-cd backend
-copy .env.example .env
-```
-
-`.env` dosyasını aç, `SIFRENIZ` yazan yere PostgreSQL şifreni yaz.
-
-### Adım 4 — Python sanal ortamı kur
-
-```bash
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### Adım 5 — Frontend .env dosyasını oluştur
-
-```bash
-cd ..\frontend
-copy .env.example .env
-npm install
-```
-
-### Adım 6 — Çalıştır
-
-Ana klasördeki **`baslat.bat`** dosyasına çift tıkla. Tarayıcı otomatik açılır.
-
-- Frontend → http://localhost:5173
-- Backend → http://localhost:8000
+Backend `http://localhost:8000`, frontend `http://localhost:5173` adresinde çalışır.
 
 ---
 
-### Sorun giderme
-
-**"PostgreSQL servisi bulunamadı"**
-→ Görev Yöneticisi → Servisler → `postgresql-x64-18` çalışıyor olmalı.
-
-**"Module not found" (backend)**
-→ `backend\venv\Scripts\activate` çalıştır, sonra `pip install -r requirements.txt`.
-
-**Harita görünmüyor**
-→ `frontend\.env` dosyasında `VITE_GOOGLE_MAPS_API_KEY` dolu mu kontrol et.
-
----
-
-## NLP Pipeline
-
-```
-Kullanıcı mesajı (Türkçe)
-    ↓
-nlp/parser.py — bütçe, gün, grup, sentiment, lokasyon çıkarır
-    ↓
-nlp/recommender.py — cosine similarity + bütçe/çeşitlilik skoru
-    ↓
-services/plan_builder.py — günlere dağıtım + Dijkstra rota optimizasyonu
-    ↓
-Frontend — plan görüntüleme
-```
-
----
-
-## NLP Model Metrikleri
-
-| Metrik | Değer |
-|--------|-------|
-| Avg Precision | 0.24 |
-| Avg Recall | 0.3833 |
-| Avg F1-Score | 0.2952 |
-| Avg MAPE | %18.58 (< %20 — İyi) |
-
----
-
-## API Endpoints
-
-| Method | Endpoint | Açıklama |
-|--------|----------|----------|
-| POST | /auth/register | Kullanıcı kaydı |
-| POST | /auth/login | Kullanıcı girişi |
-| POST | /api/plan-chat | Çok turlu AI sohbeti |
-| POST | /api/plan-build | Direkt plan oluşturma |
-| POST | /api/plan-add | Plana aktivite ekleme |
-| POST | /api/parse-input | NLP parse |
-| GET | /api/trips/{user_id} | Kullanıcı planları |
-| POST | /api/trips/save | Plan kaydetme |
-
----
-
-## Teknoloji Stack
-
-| Katman | Teknoloji |
-|--------|-----------|
-| Backend | Python 3.13 + FastAPI |
-| Frontend | React (Vite) + Tailwind CSS |
-| Veritabanı | PostgreSQL 18 |
-| NLP | scikit-learn + özel parser |
-| Harita | Google Maps API |
-| Auth | JWT + bcrypt |
-| Test | pytest |
+*Bu proje üniversite bitirme projesi olarak geliştirilmiştir.*
