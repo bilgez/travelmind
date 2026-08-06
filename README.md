@@ -18,8 +18,7 @@ Her gün ayrı renkte, mekanlar arası mesafe ve süre bilgisiyle birlikte harit
 ![Rota ve Harita](docs/screenshots/03-rota-harita.png)
 
 ### Otomatik Rota Optimizasyonu
-![Optimize Rota](docs/screenshots/04-giris
-.png)
+![Optimize Rota](docs/screenshots/04-giris.png)
 
 ## Özellikler
 
