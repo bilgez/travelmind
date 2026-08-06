@@ -2,7 +2,7 @@
 
 Kullanıcının doğal dilde yazdığı tek bir cümleye göre (bütçe, gün sayısı, ilgi alanları) kişiselleştirilmiş, gün gün optimize edilmiş bir Antalya gezi planı oluşturan yapay zeka destekli bir seyahat planlayıcı.
 
-Bu proje, [Bilge Zerda Keklik](https://github.com/bilgez) ve [Zehra Timurağaoğlu](https://github.com/zehratao) tarafından bir ekip arkadaşıyla birlikte geliştirilen bir bitirme projesidir.
+Bu proje, [Bilge Zerda Keklik](https://github.com/bilgez) ve [Zehra Timurağaoğlu](https://github.com/zehratao) tarafından geliştirilen bir bitirme projesidir.
 
 ## Ekran Görüntüleri
 
