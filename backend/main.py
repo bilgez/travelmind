@@ -8,29 +8,12 @@ import models.route
 import models.budget
 from routes.auth import router as auth_router
 from routes.trips import router as trips_router
-
-Base.metadata.create_all(bind=engine)
-
+import os
 from sqlalchemy import text
-import json, os
+import json
 
-with engine.connect() as conn:
-    conn.execute(text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS plan_data TEXT"))
-    conn.execute(text("ALTER TABLE activities ADD COLUMN IF NOT EXISTS muzekart BOOLEAN DEFAULT FALSE"))
-    conn.commit()
-
-# muzekart değerlerini JSON'dan aktar — yalnızca henüz FALSE olan satırları günceller
-_json_path = os.path.join(os.path.dirname(__file__), "data", "antalya_activities.json")
-if os.path.exists(_json_path):
-    with open(_json_path, encoding="utf-8") as _f:
-        _muzekart_names = {a["name"] for a in json.load(_f) if a.get("muzekart")}
-    with engine.connect() as conn:
-        for name in _muzekart_names:
-            conn.execute(
-                text("UPDATE activities SET muzekart = TRUE WHERE name = :name AND muzekart = FALSE"),
-                {"name": name}
-            )
-        conn.commit()
+# ⚠️ VERCEL'DE TABLOLARI OLUŞTURMA - Supabase'de zaten varlar!
+# Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="TravelMind API", version="1.0.0")
 
@@ -52,3 +35,9 @@ def root():
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+# Vercel için entrypoint
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
