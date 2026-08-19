@@ -28,12 +28,7 @@ def trips_root():
             "/activities (GET)",
             "/activities/{activity_id} (GET)",
             "/trips/{user_id} (GET)",
-            "/budget/{trip_id} (GET)",
-            "/parse-input (POST)",
-            "/plan-chat (POST)",
-            "/plan-build (POST)",
-            "/plan-add (POST)",
-            "/plan-suggest (POST)"
+            "/budget/{trip_id} (GET)"
         ]
     }
 
