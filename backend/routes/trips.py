@@ -17,7 +17,7 @@ from services.chat_engine import ChatEngine
 from services.plan_builder import build_plan, add_to_plan
 from nlp.parser import ConversationSession
 
-router = APIRouter(prefix="/api/trips", tags=["trips"])
+router = APIRouter(prefix="/trips", tags=["trips"])
 
 # In-memory ChatEngine instances (session_id → ChatEngine)
 _engines: dict[str, ChatEngine] = {}
