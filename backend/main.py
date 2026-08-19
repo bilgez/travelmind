@@ -25,7 +25,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ Prefix'leri KALDIR!
 app.include_router(auth_router)
 app.include_router(trips_router)
 
