@@ -16,6 +16,24 @@ from services.auth_deps import get_current_user
 from services.chat_engine import ChatEngine
 from services.plan_builder import build_plan, add_to_plan
 from nlp.parser import ConversationSession
+@router.get("/")
+def trips_root():
+    return {
+        "message": "Trips API çalışıyor!",
+        "endpoints": [
+            "/plans (GET, POST)",
+            "/plans/{trip_id} (DELETE, PATCH)",
+            "/activities (GET)",
+            "/activities/{activity_id} (GET)",
+            "/trips/{user_id} (GET)",
+            "/budget/{trip_id} (GET)",
+            "/parse-input (POST)",
+            "/plan-chat (POST)",
+            "/plan-build (POST)",
+            "/plan-add (POST)",
+            "/plan-suggest (POST)"
+        ]
+    }
 
 router = APIRouter(prefix="/trips", tags=["trips"])
 
