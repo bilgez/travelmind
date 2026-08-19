@@ -16,6 +16,8 @@ from services.auth_deps import get_current_user
 from services.chat_engine import ChatEngine
 from services.plan_builder import build_plan, add_to_plan
 from nlp.parser import ConversationSession
+
+router = APIRouter(prefix="/trips", tags=["trips"])
 @router.get("/")
 def trips_root():
     return {
@@ -35,7 +37,7 @@ def trips_root():
         ]
     }
 
-router = APIRouter(prefix="/trips", tags=["trips"])
+
 
 # In-memory ChatEngine instances (session_id → ChatEngine)
 _engines: dict[str, ChatEngine] = {}
