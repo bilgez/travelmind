@@ -218,6 +218,12 @@ dist/
 *.env
 !.env.example
 
+# Explicit env protection by folder
+backend/.env
+frontend/.env
+!backend/.env.example
+!frontend/.env.example
+
 # ==== Python (backend) ====
 __pycache__/
 *.py[cod]

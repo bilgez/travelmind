@@ -1,7 +1,26 @@
+import os  # ✅ BUNU EKLE!
 import json
 from database import SessionLocal, engine
 from models.activity import Activity, Base
 
+from sqlalchemy import create_engine
+
+# .env dosyasından verileri oku
+from dotenv import load_dotenv
+load_dotenv()
+
+# Parçalara ayrılmış bağlantı bilgileri
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+
+# Veritabanı URL'sini manuel olarak oluştur (SSL ayarları ile)
+DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?sslmode=require"
+os.environ["DATABASE_URL"] = DATABASE_URL
+
+print(f"✅ Bağlantı URL'si oluşturuldu: {DATABASE_URL}")
 # Kategori mapping (İngilizce → Türkçe)
 CATEGORY_MAP = {
     'historical': 'tarihi_yer',
