@@ -25,6 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ✅ Router'ları doğru prefix ile ekle
 app.include_router(auth_router, prefix="/api")
 app.include_router(trips_router, prefix="/api")
 
